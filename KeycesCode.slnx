@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/KeycesCode.Core/KeycesCode.Core.csproj" />
+    <Project Path="src/KeycesCode.Settings/KeycesCode.Settings.csproj" />
+    <Project Path="src/KeycesCode.Tests/KeycesCode.Tests.csproj" />
+  </Folder>
+</Solution>
