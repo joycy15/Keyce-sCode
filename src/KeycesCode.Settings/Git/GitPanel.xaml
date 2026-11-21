@@ -7,9 +7,13 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- En-tête -->
+        <!-- En-tête avec icônes : Pull, Push, Ouvrir, Actualiser -->
         <DockPanel Margin="0,0,8,0">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Style="{DynamicResource IconButton}" Content="&#xE896;"
+                        ToolTip="Pull (récupérer depuis GitHub)" Click="Pull_Click"/>
+                <Button Style="{DynamicResource IconButton}" Content="&#xE898;"
+                        ToolTip="Push (envoyer vers GitHub)" Click="Push_Click"/>
                 <Button Style="{DynamicResource IconButton}" Content="&#xE8B7;"
                         ToolTip="Ouvrir un dossier" Click="ChooseFolder_Click"/>
                 <Button Style="{DynamicResource IconButton}" Content="&#xE72C;"
@@ -18,34 +22,58 @@
             <TextBlock Text="CONTRÔLE DE CODE SOURCE" Style="{DynamicResource SectionHeader}"/>
         </DockPanel>
 
-        <!-- Aucun dépôt ouvert -->
+        <!-- ===== Aucun dépôt ouvert : ouvrir ou cloner ===== -->
         <StackPanel x:Name="EmptyView" Grid.Row="1" Margin="16,4">
             <TextBlock x:Name="EmptyText" TextWrapping="Wrap"
                        Foreground="{DynamicResource Brush.Foreground}"/>
             <Button Content="Ouvrir un dossier" Margin="0,12,0,0" Click="ChooseFolder_Click"/>
+
+            <TextBlock Text="Ou clonez un dépôt GitHub :" Margin="0,24,0,6"
+                       Foreground="{DynamicResource Brush.Foreground}"/>
+            <Grid>
+                <TextBox x:Name="CloneUrlInput"/>
+                <TextBlock Text="https://github.com/utilisateur/projet.git" Margin="8,5,0,0"
+                           IsHitTestVisible="False" Foreground="{DynamicResource Brush.ForegroundMuted}">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Text.IsEmpty, ElementName=CloneUrlInput}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+            <Button Content="Cloner un dépôt…" Margin="0,8,0,0" Click="Clone_Click"/>
+
+            <TextBlock x:Name="EmptyInfoText" Margin="0,12,0,0" FontSize="12" TextWrapping="Wrap"
+                       Foreground="{DynamicResource Brush.ForegroundMuted}"/>
         </StackPanel>
 
-        <!-- Dépôt ouvert -->
+        <!-- ===== Dépôt ouvert ===== -->
         <Grid x:Name="RepoView" Grid.Row="1" Visibility="Collapsed">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/> <!-- dossier -->
+                <RowDefinition Height="Auto"/> <!-- message -->
+                <RowDefinition Height="Auto"/> <!-- commit -->
+                <RowDefinition Height="Auto"/> <!-- push / pull -->
+                <RowDefinition Height="Auto"/> <!-- url GitHub -->
+                <RowDefinition Height="Auto"/> <!-- "Modifications" -->
+                <RowDefinition Height="*"/>    <!-- liste -->
+                <RowDefinition Height="Auto"/> <!-- infos -->
             </Grid.RowDefinitions>
 
             <TextBlock x:Name="FolderText" Margin="16,0,16,6" FontSize="11"
                        TextTrimming="CharacterEllipsis"
                        Foreground="{DynamicResource Brush.ForegroundMuted}"/>
 
-            <!-- Message du commit, avec un texte d'aide quand il est vide -->
+            <!-- Message du commit -->
             <Grid Grid.Row="1" Margin="16,0">
                 <TextBox x:Name="MessageInput" PreviewKeyDown="MessageInput_PreviewKeyDown"/>
                 <TextBlock Text="Message (Ctrl+Entrée pour valider)" Margin="8,5,0,0"
-                           IsHitTestVisible="False"
-                           Foreground="{DynamicResource Brush.ForegroundMuted}">
+                           IsHitTestVisible="False" Foreground="{DynamicResource Brush.ForegroundMuted}">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
                             <Setter Property="Visibility" Value="Collapsed"/>
@@ -59,10 +87,40 @@
                 </TextBlock>
             </Grid>
 
-            <Button Grid.Row="2" Margin="16,8,16,12" Content="✓  Commit" Click="Commit_Click"/>
+            <Button Grid.Row="2" Margin="16,8,16,0" Content="✓  Commit" Click="Commit_Click"/>
+
+            <!-- Push / Pull côte à côte -->
+            <UniformGrid Grid.Row="3" Columns="2" Margin="16,6,16,0">
+                <Button Content="↓  Pull" Margin="0,0,3,0" Click="Pull_Click"/>
+                <Button Content="↑  Push" Margin="3,0,0,0" Click="Push_Click"/>
+            </UniformGrid>
+
+            <!-- URL du dépôt GitHub -->
+            <StackPanel Grid.Row="4" Margin="16,16,16,12">
+                <TextBlock Text="Dépôt GitHub (origin)" FontWeight="SemiBold" Margin="0,0,0,6"
+                           Foreground="{DynamicResource Brush.Foreground}"/>
+                <Grid>
+                    <TextBox x:Name="RemoteInput"/>
+                    <TextBlock Text="https://github.com/utilisateur/projet.git" Margin="8,5,0,0"
+                               IsHitTestVisible="False" Foreground="{DynamicResource Brush.ForegroundMuted}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Text.IsEmpty, ElementName=RemoteInput}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+                <Button Content="Enregistrer l'URL" Margin="0,6,0,0" HorizontalAlignment="Left"
+                        Padding="10,3" Click="SaveRemote_Click"/>
+            </StackPanel>
 
             <!-- "Modifications" + compteur -->
-            <DockPanel Grid.Row="3" Margin="16,0,16,4">
+            <DockPanel Grid.Row="5" Margin="16,0,16,4">
                 <Border DockPanel.Dock="Right" MinWidth="18" Padding="6,0" CornerRadius="9"
                         Background="{DynamicResource Brush.Selection}">
                     <TextBlock x:Name="ChangesCount" Text="0" FontSize="11" HorizontalAlignment="Center"
@@ -72,7 +130,7 @@
                            Foreground="{DynamicResource Brush.Foreground}"/>
             </DockPanel>
 
-            <ListBox Grid.Row="4" x:Name="FilesList">
+            <ListBox Grid.Row="6" x:Name="FilesList">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Grid ToolTip="{Binding Path}">
@@ -81,18 +139,13 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-
                             <CheckBox IsChecked="{Binding IsChecked}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-
                             <TextBlock Grid.Column="1" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
-                                <Run Text="{Binding FileName, Mode=OneWay}"
-                                     Foreground="{DynamicResource Brush.Foreground}"/>
+                                <Run Text="{Binding FileName, Mode=OneWay}" Foreground="{DynamicResource Brush.Foreground}"/>
                                 <Run Text=" "/>
                                 <Run Text="{Binding Folder, Mode=OneWay}" FontSize="11"
                                      Foreground="{DynamicResource Brush.ForegroundMuted}"/>
                             </TextBlock>
-
-                            <!-- Lettre M / U / A / D, colorée selon l'état -->
                             <TextBlock Grid.Column="2" Text="{Binding Letter}" FontWeight="SemiBold"
                                        Margin="8,0,0,0" VerticalAlignment="Center">
                                 <TextBlock.Style>
@@ -117,7 +170,7 @@
                 </ListBox.ItemTemplate>
             </ListBox>
 
-            <TextBlock Grid.Row="5" x:Name="InfoText" Margin="16,8" FontSize="12" TextWrapping="Wrap"
+            <TextBlock Grid.Row="7" x:Name="InfoText" Margin="16,8" FontSize="12" TextWrapping="Wrap"
                        Foreground="{DynamicResource Brush.ForegroundMuted}"/>
         </Grid>
     </Grid>
