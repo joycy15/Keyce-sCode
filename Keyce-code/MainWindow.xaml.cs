@@ -722,6 +722,45 @@ public partial class MainWindow : Window
         document.Title.Text = Path.GetFileName(document.Path) + (document.IsDirty ? " *" : string.Empty);
     }
 
+    private void BottomPanelTab_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button selectedTab)
+        {
+            return;
+        }
+
+        ProblemsContent.Visibility = Visibility.Collapsed;
+        OutputContent.Visibility = Visibility.Collapsed;
+        DebugConsoleContent.Visibility = Visibility.Collapsed;
+        TerminalContent.Visibility = Visibility.Collapsed;
+
+        foreach (Button tab in BottomPanelTabs.Children.OfType<Button>())
+        {
+            tab.Tag = tab.Tag?.ToString()?.Replace("Active:", "", StringComparison.Ordinal);
+            tab.Foreground = (Brush)FindResource("SecondaryText");
+        }
+
+        switch (selectedTab.Tag?.ToString())
+        {
+            case "Problems":
+                ProblemsContent.Visibility = Visibility.Visible;
+                break;
+            case "Output":
+                OutputContent.Visibility = Visibility.Visible;
+                break;
+            case "Debug Console":
+                DebugConsoleContent.Visibility = Visibility.Visible;
+                break;
+            default:
+                TerminalContent.Visibility = Visibility.Visible;
+                break;
+        }
+
+        selectedTab.Tag = $"Active:{selectedTab.Tag}";
+        selectedTab.Foreground = (Brush)FindResource("AccentBrush");
+        StatusText.Text = $"{selectedTab.Tag.ToString()?.Split(':')[1]} panel selected";
+    }
+
     private async void RefreshSourceControl_Click(object sender, RoutedEventArgs e)
     {
         await RefreshSourceControlAsync();
