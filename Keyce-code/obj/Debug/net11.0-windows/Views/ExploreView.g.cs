@@ -51,7 +51,7 @@ namespace Keyce_code.Views {
                 return;
             }
             _contentLoaded = true;
-            System.Uri resourceLocater = new System.Uri("/Keyce-code;V1.0.0.0;component/views/exploreview.xaml", System.UriKind.Relative);
+            System.Uri resourceLocater = new System.Uri("/Keyce-code;component/views/exploreview.xaml", System.UriKind.Relative);
             
             #line 1 "..\..\..\..\Views\ExploreView.xaml"
             System.Windows.Application.LoadComponent(this, resourceLocater);

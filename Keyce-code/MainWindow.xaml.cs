@@ -1,8 +1,10 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Win32;
@@ -65,17 +67,86 @@ public partial class MainWindow : Window
         PopulateDirectoryNode(root);
     }
 
+    private static DockPanel CreateExplorerHeader(string name, bool isDirectory, string? extension)
+    {
+        var header = new DockPanel
+        {
+            LastChildFill = true,
+            MinHeight = 20
+        };
+
+        var icon = new TextBlock
+        {
+            Width = 18,
+            Margin = new Thickness(0, 0, 4, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            TextAlignment = TextAlignment.Center,
+            FontFamily = new FontFamily("Segoe UI Symbol"),
+            FontSize = 11,
+            Foreground = (Brush)Application.Current.FindResource("SecondaryText")
+        };
+
+        if (isDirectory)
+        {
+            icon.Text = "\u25A1";
+            icon.Foreground = new SolidColorBrush(Color.FromRgb(192, 192, 192));
+        }
+        else
+        {
+            (icon.Text, icon.Foreground) = GetFileIcon(extension);
+        }
+
+        DockPanel.SetDock(icon, Dock.Left);
+        header.Children.Add(icon);
+        header.Children.Add(new TextBlock
+        {
+            Text = name,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Foreground = (Brush)Application.Current.FindResource("PrimaryText")
+        });
+        return header;
+    }
+
+    private static (string Text, Brush Foreground) GetFileIcon(string? extension)
+    {
+        return extension switch
+        {
+            ".cs" => ("C#", new SolidColorBrush(Color.FromRgb(103, 185, 107))),
+            ".xaml" => ("X", new SolidColorBrush(Color.FromRgb(86, 156, 214))),
+            ".xml" or ".axml" or ".csproj" or ".props" or ".targets" => ("X", new SolidColorBrush(Color.FromRgb(86, 156, 214))),
+            ".js" or ".jsx" => ("JS", new SolidColorBrush(Color.FromRgb(241, 196, 15))),
+            ".ts" or ".tsx" => ("TS", new SolidColorBrush(Color.FromRgb(49, 120, 198))),
+            ".json" => ("{}", new SolidColorBrush(Color.FromRgb(241, 196, 15))),
+            ".css" or ".scss" or ".less" => ("#", new SolidColorBrush(Color.FromRgb(86, 156, 214))),
+            ".html" or ".htm" => ("<>", new SolidColorBrush(Color.FromRgb(227, 76, 38))),
+            ".py" => ("PY", new SolidColorBrush(Color.FromRgb(53, 114, 165))),
+            ".md" or ".markdown" => ("M", new SolidColorBrush(Color.FromRgb(156, 220, 254))),
+            ".cpp" or ".cc" or ".cxx" or ".h" or ".hpp" => ("C+", new SolidColorBrush(Color.FromRgb(86, 156, 214))),
+            ".go" => ("GO", new SolidColorBrush(Color.FromRgb(78, 201, 176))),
+            ".rs" => ("RS", new SolidColorBrush(Color.FromRgb(206, 145, 120))),
+            ".php" => ("PHP", new SolidColorBrush(Color.FromRgb(136, 146, 191))),
+            ".java" => ("JV", new SolidColorBrush(Color.FromRgb(241, 101, 41))),
+            ".rb" => ("RB", new SolidColorBrush(Color.FromRgb(204, 52, 45))),
+            ".sh" or ".bash" or ".ps1" or ".bat" or ".cmd" => ("$", new SolidColorBrush(Color.FromRgb(137, 209, 133))),
+            ".sql" => ("DB", new SolidColorBrush(Color.FromRgb(206, 145, 120))),
+            ".yml" or ".yaml" or ".toml" or ".ini" => ("Y", new SolidColorBrush(Color.FromRgb(206, 145, 120))),
+            _ => ("·", new SolidColorBrush(Color.FromRgb(153, 153, 153)))
+        };
+    }
+
     private static TreeViewItem CreateDirectoryNode(string path)
     {
+        string name = Path.GetFileName(path.TrimEnd(
+            Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
         var node = new TreeViewItem
         {
-            Header = Path.GetFileName(path.TrimEnd(
-                Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+            Header = CreateExplorerHeader(name, isDirectory: true, extension: null),
             Tag = path
         };
-        if (string.IsNullOrEmpty(node.Header as string))
+        if (string.IsNullOrEmpty(name))
         {
-            node.Header = path;
+            node.Header = CreateExplorerHeader(path, isDirectory: true, extension: null);
         }
 
         node.Expanded += DirectoryNode_Expanded;
@@ -118,9 +189,11 @@ public partial class MainWindow : Window
             foreach (string file in Directory.EnumerateFiles(path)
                          .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
             {
+                string name = Path.GetFileName(file);
+                string extension = Path.GetExtension(file).ToLowerInvariant();
                 var fileNode = new TreeViewItem
                 {
-                    Header = Path.GetFileName(file),
+                    Header = CreateExplorerHeader(name, isDirectory: false, extension),
                     Tag = file
                 };
                 fileNode.MouseDoubleClick += FileNode_MouseDoubleClick;
@@ -486,11 +559,8 @@ public partial class MainWindow : Window
         try
         {
             string content = File.ReadAllText(fullPath);
-            var editor = new TextBox
+            var editor = new RichTextBox
             {
-                Text = content,
-                AcceptsReturn = true,
-                AcceptsTab = true,
                 FontFamily = new FontFamily("Consolas"),
                 FontSize = 13,
                 Foreground = (Brush)FindResource("PrimaryText"),
@@ -499,8 +569,20 @@ public partial class MainWindow : Window
                 Padding = new Thickness(14),
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                TextWrapping = TextWrapping.NoWrap
+                IsDocumentEnabled = false
             };
+            var paragraph = new Paragraph
+            {
+                Margin = new Thickness(0),
+                LineHeight = 20
+            };
+            paragraph.Inlines.Add(new Run(content));
+            editor.Document = new FlowDocument(paragraph)
+            {
+                PagePadding = new Thickness(0),
+                Foreground = (Brush)FindResource("PrimaryText")
+            };
+            ApplySyntaxHighlight(editor, fullPath);
 
             var title = new TextBlock
             {
@@ -544,8 +626,13 @@ public partial class MainWindow : Window
             closeButton.Click += (_, _) => CloseDocument(document);
             editor.TextChanged += (_, _) =>
             {
+                if (editor.Tag is true)
+                {
+                    return;
+                }
                 document.IsDirty = true;
                 UpdateDocumentTitle(document);
+                ApplySyntaxHighlight(editor, document.Path);
             };
 
             _documents.Add(fullPath, document);
@@ -610,7 +697,10 @@ public partial class MainWindow : Window
 
         try
         {
-            File.WriteAllText(path, document.Editor.Text);
+            var textRange = new TextRange(
+                document.Editor.Document.ContentStart,
+                document.Editor.Document.ContentEnd);
+            File.WriteAllText(path, textRange.Text);
             document.IsDirty = false;
             UpdateDocumentTitle(document);
             StatusText.Text = $"Saved {path}";
@@ -702,9 +792,183 @@ public partial class MainWindow : Window
         return fallback;
     }
 
+    private static void ApplySyntaxHighlight(RichTextBox editor, string path)
+    {
+        if (editor.Tag is true)
+        {
+            return;
+        }
+
+        editor.Tag = true;
+        try
+        {
+        var textRange = new TextRange(
+            editor.Document.ContentStart,
+            editor.Document.ContentEnd);
+        string text = textRange.Text;
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        textRange.ApplyPropertyValue(TextElement.ForegroundProperty,
+            (Brush)Application.Current.FindResource("PrimaryText"));
+
+        string extension = Path.GetExtension(path).ToLowerInvariant();
+        string language = extension switch
+        {
+            ".cs" => "csharp",
+            ".xaml" or ".xml" or ".axml" or ".csproj" => "markup",
+            ".js" or ".ts" or ".jsx" or ".tsx" or ".java" or ".go" or ".rs" or ".rb" or ".php" or ".c" or ".cc" or ".cpp" or ".cxx" or ".h" or ".hpp" or ".sql" => "script",
+            ".json" => "json",
+            ".css" or ".scss" or ".less" => "css",
+            ".html" or ".htm" => "markup",
+            ".py" => "python",
+            ".sh" or ".bash" or ".ps1" or ".bat" or ".cmd" => "shell",
+            ".yml" or ".yaml" or ".toml" or ".ini" => "yaml",
+            ".md" or ".markdown" => "markdown",
+            _ => "text"
+        };
+
+        if (language == "text")
+        {
+            return;
+        }
+
+        var commentColor = (Brush)Application.Current.FindResource("MutedText");
+        var stringColor = new SolidColorBrush(Color.FromRgb(206, 145, 120));
+        var keywordColor = new SolidColorBrush(Color.FromRgb(197, 134, 192));
+        var typeColor = new SolidColorBrush(Color.FromRgb(78, 201, 176));
+        var numberColor = new SolidColorBrush(Color.FromRgb(181, 206, 168));
+        var tagColor = new SolidColorBrush(Color.FromRgb(86, 156, 214));
+        var attributeColor = new SolidColorBrush(Color.FromRgb(156, 220, 254));
+
+        var protectedRanges = new List<(int Start, int Length)>();
+
+        if (language == "markup")
+        {
+            ApplyRegexHighlight(editor, text, @"<!--.*?-->", commentColor);
+            ApplyRegexHighlight(editor, text, @"(?<=<[/!?]?)?[A-Za-z_][A-Za-z0-9_.:-]*(?=\s|>|/>)", tagColor);
+            ApplyRegexHighlight(editor, text, @"(?<=\s)[A-Za-z_:][A-Za-z0-9_.:-]*(?=\s*=)", attributeColor);
+            ApplyRegexHighlight(editor, text, "\"[^\"]*\"|'[^']*'", stringColor);
+            ApplyRegexHighlight(editor, text, @"&[A-Za-z]+;", numberColor);
+            return;
+        }
+
+        if (language == "markdown")
+        {
+            ApplyRegexHighlight(editor, text, @"^#{1,6}\s.*$", tagColor, RegexOptions.Multiline);
+            ApplyRegexHighlight(editor, text, @"`[^`]+`", stringColor);
+            ApplyRegexHighlight(editor, text, @"\bhttps?://\S+", attributeColor);
+            return;
+        }
+
+        string commentPattern = language switch
+        {
+            "python" or "shell" or "yaml" => @"#[^\r\n]*",
+            "css" => @"//[^\r\n]*|/\*.*?\*/",
+            "markup" => @"<!--.*?-->",
+            _ => @"//[^\r\n]*|/\*.*?\*/"
+        };
+        ApplyRegexHighlight(editor, text, commentPattern, commentColor,
+            RegexOptions.Multiline | RegexOptions.Singleline);
+        protectedRanges.AddRange(GetMatchRanges(
+            text,
+            commentPattern,
+            RegexOptions.Multiline | RegexOptions.Singleline));
+
+        string stringPattern = language switch
+        {
+            "python" => @"@?('''.*?'''|"""".*?""""|'(?:\\.|[^'])*'|""(?:\\.|[^""])*"")",
+            "json" => @"""(?:\\.|[^""])*""",
+            "css" => @"""(?:\\.|[^""])*""|'(?:\\.|[^'])*'",
+            _ => @"@?" + "\"" + "(?:\\\\.|[^\\\"])*" + "\""
+        };
+        var options = RegexOptions.Singleline;
+        if (language == "json")
+        {
+            ApplyRegexHighlight(editor, text, stringPattern, stringColor, options);
+            protectedRanges.AddRange(GetMatchRanges(text, stringPattern, options));
+        }
+        else
+        {
+            ApplyRegexHighlight(editor, text, stringPattern, stringColor, options);
+            protectedRanges.AddRange(GetMatchRanges(text, stringPattern, options));
+        }
+
+        string keywordPattern = language switch
+        {
+            "csharp" => @"\b(abstract|as|async|await|base|bool|break|byte|case|catch|char|checked|class|const|continue|decimal|default|delegate|do|double|else|enum|event|explicit|extern|false|finally|fixed|float|for|foreach|get|goto|if|implicit|in|int|interface|internal|is|lock|long|namespace|new|null|object|operator|out|override|params|private|protected|public|readonly|record|ref|required|return|sbyte|sealed|set|short|sizeof|stackalloc|static|string|struct|switch|this|throw|true|try|typeof|uint|ulong|unchecked|unsafe|ushort|using|virtual|void|volatile|where|while|yield)\b",
+            "python" => @"\b(and|as|assert|async|await|break|class|continue|def|del|elif|else|except|False|finally|for|from|global|if|import|in|is|lambda|None|not|or|pass|raise|return|True|try|while|with|yield)\b",
+            "script" => @"\b(await|break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|false|finally|for|from|function|get|if|implements|import|in|instanceof|interface|let|new|null|package|private|protected|public|return|set|static|super|switch|this|throw|true|try|typeof|undefined|var|void|while|with|yield)\b",
+            "shell" => @"\b(if|then|elif|else|fi|for|in|do|done|while|until|case|esac|function|return|exit|export|readonly|local|declare|true|false)\b",
+            "yaml" => @"\b(true|false|null|yes|no|on|off)\b",
+            "json" => @"\b(true|false|null)\b",
+            "css" => @"\b(!important|inherit|initial|unset|block|inline|flex|grid|none|relative|absolute|fixed)\b",
+            _ => @"(?!)"
+        };
+        ApplyRegexHighlight(editor, text, keywordPattern, keywordColor,
+            RegexOptions.None, protectedRanges);
+
+        string typePattern = language == "csharp"
+            ? @"\b[A-Z][A-Za-z0-9_]*\b"
+            : language == "python"
+                ? @"\b[A-Z][A-Za-z0-9_]*\b"
+                : language == "script"
+                    ? @"\b(?:auto|bool|char|double|float|int|long|short|signed|unsigned|void|string|object|struct|enum|interface|func|fn|mut|pub|crate)\b"
+                    : @"(?<![A-Za-z0-9_-])--?[A-Za-z][A-Za-z0-9_-]*";
+        ApplyRegexHighlight(editor, text, typePattern, typeColor,
+            RegexOptions.None, protectedRanges);
+
+        ApplyRegexHighlight(editor, text, @"\b(?:0[xX][0-9A-Fa-f]+|\d+(?:\.\d+)?)\b",
+            numberColor, RegexOptions.None, protectedRanges);
+        }
+        finally
+        {
+            editor.Tag = false;
+        }
+    }
+
+    private static IEnumerable<(int Start, int Length)> GetMatchRanges(
+        string text,
+        string pattern,
+        RegexOptions options)
+    {
+        return Regex.Matches(text, pattern, options)
+            .Cast<Match>()
+            .Select(match => (match.Index, match.Length));
+    }
+
+    private static void ApplyRegexHighlight(
+        RichTextBox editor,
+        string text,
+        string pattern,
+        Brush color,
+        RegexOptions options = RegexOptions.None,
+        IEnumerable<(int Start, int Length)>? excludedRanges = null)
+    {
+        var exclusions = excludedRanges?.ToArray() ?? Array.Empty<(int Start, int Length)>();
+        foreach (Match match in Regex.Matches(text, pattern, options))
+        {
+            if (exclusions.Any(range =>
+                    match.Index >= range.Start &&
+                    match.Index < range.Start + range.Length))
+            {
+                continue;
+            }
+
+            TextPointer start = editor.Document.ContentStart.GetPositionAtOffset(match.Index);
+            TextPointer end = editor.Document.ContentStart.GetPositionAtOffset(match.Index + match.Length);
+            if (start is not null && end is not null)
+            {
+                new TextRange(start, end).ApplyPropertyValue(TextElement.ForegroundProperty, color);
+            }
+        }
+    }
+
     private sealed class EditorDocument
     {
-        public EditorDocument(string path, TabItem tab, TextBox editor, TextBlock title)
+        public EditorDocument(string path, TabItem tab, RichTextBox editor, TextBlock title)
         {
             Path = path;
             Tab = tab;
@@ -714,7 +978,7 @@ public partial class MainWindow : Window
 
         public string Path { get; }
         public TabItem Tab { get; }
-        public TextBox Editor { get; }
+        public RichTextBox Editor { get; }
         public TextBlock Title { get; }
         public bool IsDirty { get; set; }
     }
