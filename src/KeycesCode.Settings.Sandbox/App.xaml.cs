@@ -1,4 +1,5 @@
 ﻿using System.Windows;
+using KeycesCode.Settings.KeyBindings;
 
 namespace KeycesCode.Settings.Sandbox;
 
@@ -6,6 +7,7 @@ public partial class App : Application
 {
     public static SettingsService Settings { get; } = new();
     public static ThemeService Themes { get; } = new();
+    public static KeyBindingService KeyBindings { get; } = new(Settings);
 
     protected override async void OnStartup(StartupEventArgs e)
     {

@@ -1,9 +1,11 @@
 ﻿<UserControl x:Class="KeycesCode.Settings.SettingsPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Focusable="True" PreviewKeyDown="Page_PreviewKeyDown">
 
     <UserControl.Resources>
-        <!-- Un réglage : fond qui s'éclaire au survol, comme dans VS Code -->
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
         <Style x:Key="SettingItem" TargetType="Border">
             <Setter Property="Padding" Value="14,10"/>
             <Setter Property="Margin" Value="0,0,0,4"/>
@@ -33,7 +35,6 @@
             <Setter Property="Foreground" Value="{DynamicResource Brush.Foreground}"/>
         </Style>
 
-        <!-- Boutons à choix unique (Sombre / Clair) -->
         <Style x:Key="OptionButton" TargetType="RadioButton">
             <Setter Property="Foreground" Value="{DynamicResource Brush.Foreground}"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -60,7 +61,6 @@
             </Setter>
         </Style>
 
-        <!-- Liens de la table des matières -->
         <Style x:Key="CategoryButton" TargetType="Button">
             <Setter Property="Foreground" Value="{DynamicResource Brush.Foreground}"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -83,10 +83,10 @@
 
     <Grid Background="{DynamicResource Brush.Background}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>  <!-- recherche -->
-            <RowDefinition Height="Auto"/>  <!-- "Utilisateur" -->
-            <RowDefinition Height="*"/>     <!-- contenu -->
-            <RowDefinition Height="Auto"/>  <!-- message -->
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- Barre de recherche -->
@@ -107,7 +107,6 @@
             </TextBlock>
         </Grid>
 
-        <!-- Onglet "Utilisateur" -->
         <Border Grid.Row="1" Margin="24,0,24,0" BorderThickness="0,0,0,1"
                 BorderBrush="{DynamicResource Brush.Border}">
             <Border HorizontalAlignment="Left" BorderThickness="0,0,0,1" Padding="2,6"
@@ -128,16 +127,15 @@
                 <Button Style="{StaticResource CategoryButton}" Content="Éditeur" Tag="EditorSection" Click="Category_Click"/>
                 <Button Style="{StaticResource CategoryButton}" Content="Fichiers" Tag="FilesSection" Click="Category_Click"/>
                 <Button Style="{StaticResource CategoryButton}" Content="Assistant IA" Tag="AssistantSection" Click="Category_Click"/>
+                <Button Style="{StaticResource CategoryButton}" Content="Raccourcis clavier" Tag="ShortcutsSection" Click="Category_Click"/>
             </StackPanel>
 
-            <!-- Liste des réglages -->
             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
                 <StackPanel x:Name="SettingsList" Margin="0,0,24,24" MaxWidth="800" HorizontalAlignment="Left">
 
                     <!-- ===== Apparence ===== -->
                     <StackPanel x:Name="AppearanceSection">
                         <TextBlock Text="Apparence" Style="{StaticResource SectionTitle}"/>
-
                         <Border Style="{StaticResource SettingItem}" Tag="apparence thème couleur sombre clair">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource SettingTitle}">
@@ -158,7 +156,6 @@
                     <!-- ===== Éditeur ===== -->
                     <StackPanel x:Name="EditorSection">
                         <TextBlock Text="Éditeur" Style="{StaticResource SectionTitle}"/>
-
                         <Border Style="{StaticResource SettingItem}" Tag="éditeur police famille font">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource SettingTitle}">
@@ -170,7 +167,6 @@
                                          LostFocus="FontFamily_LostFocus" PreviewKeyDown="Field_PreviewKeyDown"/>
                             </StackPanel>
                         </Border>
-
                         <Border Style="{StaticResource SettingItem}" Tag="éditeur taille police texte">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource SettingTitle}">
@@ -182,7 +178,6 @@
                                          LostFocus="FontSize_LostFocus" PreviewKeyDown="Field_PreviewKeyDown"/>
                             </StackPanel>
                         </Border>
-
                         <Border Style="{StaticResource SettingItem}" Tag="éditeur minimap aperçu">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource SettingTitle}">
@@ -197,7 +192,6 @@
                     <!-- ===== Fichiers ===== -->
                     <StackPanel x:Name="FilesSection">
                         <TextBlock Text="Fichiers" Style="{StaticResource SectionTitle}"/>
-
                         <Border Style="{StaticResource SettingItem}" Tag="fichiers enregistrement sauvegarde automatique">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource SettingTitle}">
@@ -207,7 +201,6 @@
                                           Content="Enregistrer automatiquement les fichiers modifiés."/>
                             </StackPanel>
                         </Border>
-
                         <Border Style="{StaticResource SettingItem}" Tag="fichiers délai enregistrement sauvegarde automatique secondes">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource SettingTitle}">
@@ -224,7 +217,6 @@
                     <!-- ===== Assistant IA ===== -->
                     <StackPanel x:Name="AssistantSection">
                         <TextBlock Text="Assistant IA" Style="{StaticResource SectionTitle}"/>
-
                         <Border Style="{StaticResource SettingItem}" Tag="assistant ia modèle ollama">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource SettingTitle}">
@@ -237,11 +229,57 @@
                             </StackPanel>
                         </Border>
                     </StackPanel>
+
+                    <!-- ===== Raccourcis clavier ===== -->
+                    <StackPanel x:Name="ShortcutsSection">
+                        <TextBlock Text="Raccourcis clavier" Style="{StaticResource SectionTitle}"/>
+                        <Border Style="{StaticResource SettingItem}" Tag="raccourcis clavier touches commandes">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource SettingTitle}">
+                                    <Run Text="Raccourcis clavier : "/><Run Text="Commandes" FontWeight="SemiBold"/>
+                                </TextBlock>
+                                <TextBlock Style="{StaticResource SettingDescription}"
+                                           Text="Clique sur « Modifier », puis appuie sur la nouvelle combinaison de touches. Échap pour annuler."/>
+
+                                <ItemsControl x:Name="ShortcutsList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,3">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="210"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <TextBlock Text="{Binding Title}" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource Brush.Foreground}"/>
+
+                                                <!-- Le raccourci, affiché comme une touche de clavier -->
+                                                <Border Grid.Column="1" HorizontalAlignment="Left" Padding="8,2"
+                                                        CornerRadius="3" BorderThickness="1"
+                                                        BorderBrush="{DynamicResource Brush.Border}"
+                                                        Background="{DynamicResource Brush.Input}">
+                                                    <TextBlock Text="{Binding Shortcut}" FontFamily="Cascadia Mono, Consolas"
+                                                               Foreground="{DynamicResource Brush.Foreground}"/>
+                                                </Border>
+
+                                                <Button Grid.Column="2" Content="Modifier" Padding="10,2" Margin="8,0,0,0"
+                                                        Tag="{Binding CommandId}" Click="EditShortcut_Click"/>
+                                                <Button Grid.Column="3" Content="Réinitialiser" Padding="10,2" Margin="6,0,0,0"
+                                                        Tag="{Binding CommandId}" Click="ResetShortcut_Click"
+                                                        Visibility="{Binding IsCustom, Converter={StaticResource BoolToVis}}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </Grid>
 
-        <!-- Message de confirmation ou d'erreur -->
         <TextBlock Grid.Row="3" x:Name="StatusText" Margin="24,6,24,10" FontSize="12"
                    Foreground="{DynamicResource Brush.ForegroundMuted}"/>
     </Grid>
