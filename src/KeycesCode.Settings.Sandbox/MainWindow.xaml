@@ -1,0 +1,40 @@
+﻿<Window x:Class="KeycesCode.Settings.Sandbox.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Keyce'sCode — Bac à sable Paramètres"
+        Height="380" Width="560"
+        Background="{DynamicResource Brush.Background}">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Keyce'sCode" FontSize="28" FontWeight="Bold"
+                   Foreground="{DynamicResource Brush.Primary}"/>
+
+        <TextBlock Grid.Row="1" x:Name="ThemeLabel" Margin="0,8,0,16"
+                   Foreground="{DynamicResource Brush.Foreground}"/>
+
+        <Border Grid.Row="2" Padding="16" CornerRadius="8" BorderThickness="1"
+                Background="{DynamicResource Brush.Panel}"
+                BorderBrush="{DynamicResource Brush.Border}">
+            <StackPanel>
+                <TextBlock Text="Panneau secondaire (gris bleuté)"
+                           Foreground="{DynamicResource Brush.Foreground}"/>
+                <TextBlock Text="Texte d'accent (violet)" Margin="0,8,0,0"
+                           Foreground="{DynamicResource Brush.Accent}"/>
+                <TextBlock Text="Élément interactif (cyan)" Margin="0,8,0,0"
+                           Foreground="{DynamicResource Brush.Interactive}"/>
+            </StackPanel>
+        </Border>
+
+        <Button Grid.Row="3" x:Name="ToggleButton" Content="Basculer le thème"
+                Margin="0,16,0,0" Padding="16,8" HorizontalAlignment="Left"
+                BorderThickness="0" Foreground="White"
+                Background="{DynamicResource Brush.Primary}"
+                Click="ToggleButton_Click"/>
+    </Grid>
+</Window>
