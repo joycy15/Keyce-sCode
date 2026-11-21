@@ -51,7 +51,6 @@ public class GitServiceTests : IDisposable
         Assert.Empty(status.Files);
     }
 
-    // Crée un petit dépôt Git de test dans le dossier temporaire
     private void InitRepo()
     {
         RunGit("init");
@@ -77,7 +76,6 @@ public class GitServiceTests : IDisposable
     {
         if (!Directory.Exists(_folder)) return;
 
-        // Le dossier .git contient des fichiers en lecture seule : on les débloque avant de supprimer
         foreach (var file in Directory.GetFiles(_folder, "*", SearchOption.AllDirectories))
             File.SetAttributes(file, FileAttributes.Normal);
 

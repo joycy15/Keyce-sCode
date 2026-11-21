@@ -1,13 +1,19 @@
-<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-
-    <!-- Thème clair de Keyce'sCode -->
-    <SolidColorBrush x:Key="Brush.Background"  Color="#F4F6FB"/>
-    <SolidColorBrush x:Key="Brush.Panel"       Color="#E3E8F2"/>
-    <SolidColorBrush x:Key="Brush.Border"      Color="#C5CDE0"/>
-    <SolidColorBrush x:Key="Brush.Foreground"  Color="#1A2238"/>
-    <SolidColorBrush x:Key="Brush.Primary"     Color="#1F5BEF"/>
-    <SolidColorBrush x:Key="Brush.Accent"      Color="#7C3AED"/>
-    <SolidColorBrush x:Key="Brush.Interactive" Color="#0891B2"/>
-
+    <!-- Thème clair de Keyce'sCode : blancs et gris -->
+    <SolidColorBrush x:Key="Brush.Background"      Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="Brush.Panel"           Color="#F8F8F8"/>
+    <SolidColorBrush x:Key="Brush.ActivityBar"     Color="#F0F0F0"/>
+    <SolidColorBrush x:Key="Brush.Border"          Color="#E5E5E5"/>
+    <SolidColorBrush x:Key="Brush.Foreground"      Color="#1F1F1F"/>
+    <SolidColorBrush x:Key="Brush.ForegroundMuted" Color="#6E6E6E"/>
+    <SolidColorBrush x:Key="Brush.Primary"         Color="#2C2C2C"/> <!-- boutons : gris foncé -->
+    <SolidColorBrush x:Key="Brush.Accent"          Color="#1F1F1F"/>
+    <SolidColorBrush x:Key="Brush.Interactive"     Color="#1F1F1F"/>
+    <SolidColorBrush x:Key="Brush.Hover"           Color="#ECECEC"/>
+    <SolidColorBrush x:Key="Brush.Selection"       Color="#E4E6F1"/>
+    <SolidColorBrush x:Key="Brush.Input"           Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="Brush.GitModified"     Color="#9A6700"/>
+    <SolidColorBrush x:Key="Brush.GitAdded"        Color="#1A7F37"/>
+    <SolidColorBrush x:Key="Brush.GitDeleted"      Color="#CF222E"/>
 </ResourceDictionary>
