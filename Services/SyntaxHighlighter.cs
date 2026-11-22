@@ -1,6 +1,8 @@
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Highlighting.Xshd;
 using System.IO;
+using System.Text;
+using System.Windows.Media;
 using System.Xml;
 
 namespace Keyce_sCode.Services;
@@ -12,25 +14,36 @@ public interface ISyntaxHighlighter
 
 public sealed class LanguageSyntaxHighlighter : ISyntaxHighlighter
 {
-    private static readonly Dictionary<string, string> LanguageGroups = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, string> LanguageDefinitions = new(StringComparer.OrdinalIgnoreCase)
     {
-        [".py"] = "python",
-        [".cs"] = "csharp",
-        [".js"] = "javascript",
-        [".html"] = "html",
-        [".css"] = "css",
-        [".php"] = "php",
-        [".c"] = "c",
-        [".cpp"] = "cpp",
-        [".h"] = "cpp",
-        [".hpp"] = "cpp"
+        [".py"] = "Python",
+        [".cs"] = "C#",
+        [".js"] = "JavaScript",
+        [".mjs"] = "JavaScript",
+        [".cjs"] = "JavaScript",
+        [".ts"] = "JavaScript",
+        [".mts"] = "JavaScript",
+        [".cts"] = "JavaScript",
+        [".tsx"] = "JavaScript",
+        [".html"] = "HTML",
+        [".htm"] = "HTML",
+        [".css"] = "CSS",
+        [".php"] = "PHP",
+        [".c"] = "C++",
+        [".cpp"] = "C++",
+        [".cc"] = "C++",
+        [".cxx"] = "C++",
+        [".h"] = "C++",
+        [".hpp"] = "C++",
+        [".hh"] = "C++",
+        [".hxx"] = "C++"
     };
 
     private readonly Dictionary<(string Language, bool Dark), IHighlightingDefinition> _definitions = new();
 
     public IHighlightingDefinition? GetDefinition(string? filePath, bool isDarkTheme)
     {
-        if (filePath is null || !LanguageGroups.TryGetValue(Path.GetExtension(filePath), out var language))
+        if (filePath is null || !LanguageDefinitions.TryGetValue(Path.GetExtension(filePath), out var language))
         {
             return null;
         }
@@ -38,55 +51,111 @@ public sealed class LanguageSyntaxHighlighter : ISyntaxHighlighter
         var key = (language, isDarkTheme);
         if (!_definitions.TryGetValue(key, out var definition))
         {
-            definition = LoadDefinition(language, isDarkTheme);
+            definition = language == "HTML"
+                ? LoadHtmlDefinition(isDarkTheme)
+                : HighlightingManager.Instance.GetDefinition(language);
             _definitions.Add(key, definition);
+        }
+
+        ApplyTheme(definition, isDarkTheme);
+        if (language == "HTML")
+        {
+            ApplyTheme(HighlightingManager.Instance.GetDefinition("JavaScript"), isDarkTheme);
+            ApplyTheme(HighlightingManager.Instance.GetDefinition("CSS"), isDarkTheme);
         }
 
         return definition;
     }
 
-    private static IHighlightingDefinition LoadDefinition(string language, bool isDarkTheme)
+    private static IHighlightingDefinition LoadHtmlDefinition(bool isDarkTheme)
     {
-        var colors = isDarkTheme
-            ? new SyntaxColors("#569CD6", "#6A9955", "#CE9178", "#DCDCAA", "#B5CEA8", "#D4D4D4")
-            : new SyntaxColors("#0000FF", "#008000", "#A31515", "#795E26", "#098658", "#202020");
+        const string resourceName = "ICSharpCode.AvalonEdit.Highlighting.Resources.HTML-Mode.xshd";
+        using var resource = typeof(HighlightingManager).Assembly.GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"La grammaire HTML intégrée est introuvable : {resourceName}");
+        var syntax = new XmlDocument();
+        syntax.Load(resource);
 
-        (string Keywords, string? CommentStart, string? BlockCommentStart, string? BlockCommentEnd, string? TagRule) syntax = language switch
-        {
-            "python" => ("and as assert async await break class continue def del elif else except False finally for from global if import in is lambda nonlocal not or pass raise return True try while with yield None", "#", null, null, null),
-            "csharp" => ("abstract as base bool break byte case catch char checked class const continue decimal default delegate do double else enum event explicit extern false finally fixed float for foreach goto if implicit in int interface internal is lock long namespace new null object operator out override params private protected public readonly ref return sbyte sealed short sizeof stackalloc static string struct switch this throw true try typeof uint ulong unchecked unsafe ushort using virtual void volatile while async await var", "//", "/*", "*/", null),
-            "javascript" => ("async await break case catch class const continue debugger default delete do else export extends false finally for from function if import in instanceof let new null of return static super switch this throw true try typeof undefined var void while with yield", "//", "/*", "*/", null),
-            "html" => (string.Empty, null, "<!--", "-->", "&lt;/?[A-Za-z][^&gt;]*&gt;"),
-            "css" => ("important inherit initial unset auto none block flex grid inline inline-block absolute relative fixed sticky transparent solid hidden", null, "/*", "*/", null),
-            "php" => ("abstract and array as break callable case catch class clone const continue declare default do echo else elseif empty endfor endforeach endif endswitch endwhile eval exit extends final finally for foreach function global if implements include include_once instanceof insteadof interface isset list namespace new or print private protected public require require_once return static switch throw trait try unset use var while xor yield true false null", "//", "/*", "*/", null),
-            "c" or "cpp" => ("alignas alignof auto bool break case char class const constexpr continue default delete do double else enum explicit extern false float for friend if inline int long namespace new nullptr operator private protected public register return short signed sizeof static struct switch template this throw true try typedef typename union unsigned using virtual void volatile while", "//", "/*", "*/", null),
-            _ => (string.Empty, null, null, null, null)
-        };
-        var (keywords, commentStart, blockCommentStart, blockCommentEnd, tagRule) = syntax;
+        var root = syntax.DocumentElement
+            ?? throw new InvalidDataException("La grammaire HTML intégrée est vide.");
+        var namespaceUri = root.NamespaceURI;
+        var namespaces = new XmlNamespaceManager(syntax.NameTable);
+        namespaces.AddNamespace("x", namespaceUri);
 
-        var xml = $"""
-            <SyntaxDefinition name="Keyce-{language}-{(isDarkTheme ? "dark" : "light")}" extensions="" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
-              <Color name="Keyword" foreground="{colors.Keyword}" fontWeight="bold" />
-              <Color name="Comment" foreground="{colors.Comment}" />
-              <Color name="String" foreground="{colors.String}" />
-              <Color name="Tag" foreground="{colors.Tag}" />
-              <Color name="Number" foreground="{colors.Number}" />
-              <Color name="Default" foreground="{colors.Default}" />
-              <RuleSet>
-                {(keywords.Length == 0 ? string.Empty : $"<Keywords color=\"Keyword\">{string.Join(string.Empty, keywords.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(word => $"<Word>{word}</Word>"))}</Keywords>")}
-                {(commentStart is null ? string.Empty : $"<Span color=\"Comment\" begin=\"{commentStart}\" />")}
-                {(blockCommentStart is null ? string.Empty : $"<Span color=\"Comment\" begin=\"{blockCommentStart}\" end=\"{blockCommentEnd}\" multiline=\"true\" />")}
-                <Span color="String" begin="&quot;" end="&quot;" />
-                <Span color="String" begin="'" end="'" />
-                {(tagRule is null ? string.Empty : $"<Rule color=\"Tag\">{tagRule}</Rule>")}
-                <Rule color="Number">\b\d+(\.\d+)?\b</Rule>
-              </RuleSet>
-            </SyntaxDefinition>
-            """;
+        var mainRules = root.SelectSingleNode("x:RuleSet[not(@name)]", namespaces)
+            ?? throw new InvalidDataException("La grammaire HTML intégrée ne contient pas de règles principales.");
+        var color = syntax.CreateElement("Color", namespaceUri);
+        color.SetAttribute("name", "StyleTag");
+        color.SetAttribute("foreground", isDarkTheme ? "#4EC9B0" : "#800000");
+        root.InsertBefore(color, mainRules);
 
-        using var reader = XmlReader.Create(new StringReader(xml));
+        var styleSpan = syntax.CreateElement("Span", namespaceUri);
+        styleSpan.SetAttribute("ruleSet", "CSSSet");
+        styleSpan.SetAttribute("multiline", "true");
+        var begin = syntax.CreateElement("Begin", namespaceUri);
+        begin.SetAttribute("color", "StyleTag");
+        begin.InnerText = "<style(\\s[^>]*)?>";
+        var end = syntax.CreateElement("End", namespaceUri);
+        end.SetAttribute("color", "StyleTag");
+        end.InnerText = "</style\\s*>";
+        styleSpan.AppendChild(begin);
+        styleSpan.AppendChild(end);
+
+        var firstRule = mainRules.ChildNodes.OfType<XmlElement>().FirstOrDefault();
+        mainRules.InsertBefore(styleSpan, firstRule);
+
+        var cssRules = syntax.CreateElement("RuleSet", namespaceUri);
+        cssRules.SetAttribute("name", "CSSSet");
+        var cssImport = syntax.CreateElement("Import", namespaceUri);
+        cssImport.SetAttribute("ruleSet", "CSS/");
+        cssRules.AppendChild(cssImport);
+        root.AppendChild(cssRules);
+
+        using var reader = XmlReader.Create(new StringReader(syntax.OuterXml));
         return HighlightingLoader.Load(reader, HighlightingManager.Instance);
     }
 
-    private sealed record SyntaxColors(string Keyword, string Comment, string String, string Tag, string Number, string Default);
+    private static void ApplyTheme(IHighlightingDefinition definition, bool isDarkTheme)
+    {
+        foreach (var color in definition.NamedHighlightingColors)
+        {
+            var foreground = GetThemeColor(color.Name, isDarkTheme);
+            if (foreground is not null)
+            {
+                color.Foreground = new SimpleHighlightingBrush(foreground.Value);
+            }
+        }
+    }
+
+    private static Color? GetThemeColor(string name, bool isDarkTheme)
+    {
+        var color = name.Contains("Comment", StringComparison.OrdinalIgnoreCase)
+            ? isDarkTheme ? "#6A9955" : "#008000"
+            : name.Contains("String", StringComparison.OrdinalIgnoreCase) ||
+              name.Contains("Character", StringComparison.OrdinalIgnoreCase) ||
+              name.Contains("Char", StringComparison.OrdinalIgnoreCase) ||
+              name.Contains("Regex", StringComparison.OrdinalIgnoreCase)
+                ? isDarkTheme ? "#CE9178" : "#A31515"
+                : name.Contains("Number", StringComparison.OrdinalIgnoreCase) ||
+                  name.Contains("Digit", StringComparison.OrdinalIgnoreCase)
+                    ? isDarkTheme ? "#B5CEA8" : "#098658"
+                    : name.Contains("Keyword", StringComparison.OrdinalIgnoreCase) ||
+                      name.Contains("Literal", StringComparison.OrdinalIgnoreCase) ||
+                      name.Contains("Intrinsic", StringComparison.OrdinalIgnoreCase) ||
+                      name.Contains("GlobalFunction", StringComparison.OrdinalIgnoreCase)
+                        ? isDarkTheme ? "#569CD6" : "#0000FF"
+                        : name.Contains("Method", StringComparison.OrdinalIgnoreCase)
+                            ? isDarkTheme ? "#DCDCAA" : "#795E26"
+                            : name.Contains("Tag", StringComparison.OrdinalIgnoreCase) ||
+                              name.Contains("Attribute", StringComparison.OrdinalIgnoreCase) ||
+                              name.Contains("Entity", StringComparison.OrdinalIgnoreCase)
+                                ? isDarkTheme ? "#4EC9B0" : "#800000"
+                                : name.Contains("Class", StringComparison.OrdinalIgnoreCase) ||
+                                  name.Contains("Selector", StringComparison.OrdinalIgnoreCase)
+                                    ? isDarkTheme ? "#D7BA7D" : "#800080"
+                                    : null;
+
+        return color is null
+            ? null
+            : (Color)ColorConverter.ConvertFromString(color);
+    }
 }

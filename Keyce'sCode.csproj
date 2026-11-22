@@ -3,6 +3,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
+    <AssemblyName>Keyce_sCode</AssemblyName>
     <RootNamespace>Keyce_sCode</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -10,6 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Keyce-sCode.Tests\**\*.cs" />
     <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
   </ItemGroup>
 

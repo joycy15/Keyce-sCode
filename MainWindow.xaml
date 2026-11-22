@@ -56,7 +56,12 @@
                     <Button Content="Ouvrir" ToolTip="Ouvrir un fichier (Ctrl+O)" Click="OpenFile_Click" />
                     <Button Content="Dossier" ToolTip="Ouvrir un dossier" Click="OpenFolder_Click" />
                     <Button Content="Enregistrer" ToolTip="Enregistrer (Ctrl+S)" Click="SaveFile_Click" />
-                    <Button x:Name="RunButton" Content="Exécuter" ToolTip="Exécuter (F5)" Click="RunFile_Click" />
+                    <Button x:Name="RunButton" Content="Exécuter" ToolTip="Exécuter sans déboguer (Ctrl+F5)" Click="RunFile_Click" />
+                    <Button x:Name="DebugButton" Content="Déboguer" ToolTip="Déboguer / continuer (F5)" Click="DebugFile_Click" />
+                    <Button x:Name="StepInButton" Content="Entrer" ToolTip="Entrer dans l’appel (F11)" IsEnabled="False" Click="StepIn_Click" />
+                    <Button x:Name="StepOverButton" Content="Pas à pas" ToolTip="Pas à pas (F10)" IsEnabled="False" Click="StepOver_Click" />
+                    <Button x:Name="StepOutButton" Content="Sortir" ToolTip="Sortir de l’appel (Maj+F11)" IsEnabled="False" Click="StepOut_Click" />
+                    <Button x:Name="StopDebugButton" Content="Arrêter debug" ToolTip="Arrêter le débogage (Maj+F5)" IsEnabled="False" Click="StopDebug_Click" />
                     <Button x:Name="StopButton" Content="Arrêter" IsEnabled="False" Click="StopRun_Click" />
                     <Button x:Name="ThemeButton" Content="Thème clair" Click="ToggleTheme_Click" />
                 </StackPanel>
@@ -72,9 +77,18 @@
             <Border Grid.Column="0" Background="{DynamicResource PanelBackgroundBrush}"
                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="EXPLORATEUR" FontSize="11" FontWeight="Bold"
-                               Foreground="{DynamicResource MutedForegroundBrush}" Margin="14,16,8,12" />
-                    <TreeView x:Name="FileTree" Margin="6,0,4,8" MouseDoubleClick="FileTree_MouseDoubleClick" />
+                    <DockPanel DockPanel.Dock="Top" Margin="8,12,8,8">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="+" ToolTip="Nouveau fichier" Click="NewWorkspaceFile_Click" />
+                            <Button Content="+" ToolTip="Nouveau dossier" Click="NewWorkspaceFolder_Click" />
+                            <Button Content="↻" ToolTip="Actualiser l’explorateur" Click="RefreshWorkspace_Click" />
+                        </StackPanel>
+                        <TextBlock Text="EXPLORATEUR" FontSize="11" FontWeight="Bold"
+                                   Foreground="{DynamicResource MutedForegroundBrush}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <TreeView x:Name="FileTree" Margin="6,0,4,8"
+                              SelectedItemChanged="FileTree_SelectedItemChanged"
+                              MouseDoubleClick="FileTree_MouseDoubleClick" />
                 </DockPanel>
             </Border>
 

@@ -9,7 +9,7 @@ public sealed record ProcessOutput(string Text, bool IsError = false);
 public interface ILanguageRunner
 {
     bool Supports(string extension);
-    Task RunAsync(string filePath, Action<ProcessOutput> report, CancellationToken cancellationToken);
+    Task<int> RunAsync(string filePath, Action<ProcessOutput> report, CancellationToken cancellationToken);
 }
 
 public sealed class ExecutionService
@@ -23,7 +23,7 @@ public sealed class ExecutionService
         new WebRunner()
     ];
 
-    public Task RunAsync(string filePath, Action<ProcessOutput> report, CancellationToken cancellationToken)
+    public Task<int> RunAsync(string filePath, Action<ProcessOutput> report, CancellationToken cancellationToken)
     {
         var extension = Path.GetExtension(filePath);
         var runner = _runners.FirstOrDefault(candidate => candidate.Supports(extension));
