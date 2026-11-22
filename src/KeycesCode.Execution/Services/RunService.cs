@@ -45,9 +45,7 @@ namespace KeycesCode.Execution.Services
                 throw new InvalidOperationException("Une exécution est déjà en cours.");
 
             (string fileName, string arguments) = await BuildCommandAsync(request, isDebug: false, cancellationToken);
-            string workingDir = !string.IsNullOrWhiteSpace(request.WorkingDirectory)
-                ? request.WorkingDirectory
-                : Path.GetDirectoryName(Path.GetFullPath(request.FilePath)) ?? Environment.CurrentDirectory;
+            string workingDir = ResolveWorkingDirectory(request.FilePath, request.WorkingDirectory);
 
             var stdoutBuilder = new StringBuilder();
             var stderrBuilder = new StringBuilder();
@@ -129,6 +127,20 @@ namespace KeycesCode.Execution.Services
                     stopwatch.Elapsed,
                     TimedOut: true);
             }
+            catch (Exception ex)
+            {
+                await StopCurrentProcessAsync();
+                stopwatch.Stop();
+                stderrBuilder.AppendLine(ex.Message);
+                EmitOutput($"[Erreur] {ex.Message}", OutputStreamType.StandardError);
+
+                return new ExecutionResult(
+                    -1,
+                    stdoutBuilder.ToString(),
+                    stderrBuilder.ToString(),
+                    stopwatch.Elapsed,
+                    TimedOut: false);
+            }
             finally
             {
                 lock (_syncLock)
@@ -150,9 +162,7 @@ namespace KeycesCode.Execution.Services
                 throw new InvalidOperationException("Une session est déjà active.");
 
             (string fileName, string arguments) = await BuildCommandAsync(request, isDebug: true, cancellationToken);
-            string workingDir = !string.IsNullOrWhiteSpace(request.WorkingDirectory)
-                ? request.WorkingDirectory
-                : Path.GetDirectoryName(Path.GetFullPath(request.FilePath)) ?? Environment.CurrentDirectory;
+            string workingDir = ResolveWorkingDirectory(request.FilePath, request.WorkingDirectory);
 
             var process = new Process
             {
@@ -208,8 +218,8 @@ namespace KeycesCode.Execution.Services
             string debuggerName = Path.GetExtension(request.FilePath).ToLowerInvariant() switch
             {
                 ".py" => "pdb",
-                ".js" => "node-inspect",
-                ".cs" or ".csproj" => "dotnet-debug",
+                ".js" or ".mjs" => "node-inspect",
+                ".cs" or ".csproj" or ".sln" => "dotnet-debug",
                 _ => Path.GetFileNameWithoutExtension(fileName)
             };
 
@@ -229,6 +239,7 @@ namespace KeycesCode.Execution.Services
                 try
                 {
                     proc.Kill(entireProcessTree: true);
+                    EmitOutput("[Arrêt] Processus arrêté par l'utilisateur.", OutputStreamType.SystemMessage);
                 }
                 catch
                 {
@@ -237,6 +248,14 @@ namespace KeycesCode.Execution.Services
             }
 
             return Task.CompletedTask;
+        }
+
+        private static string ResolveWorkingDirectory(string filePath, string? workingDirectory)
+        {
+            if (!string.IsNullOrWhiteSpace(workingDirectory) && Directory.Exists(workingDirectory))
+                return Path.GetFullPath(workingDirectory);
+
+            return Path.GetDirectoryName(Path.GetFullPath(filePath)) ?? Environment.CurrentDirectory;
         }
 
         private async Task<(string FileName, string Arguments)> BuildCommandAsync(
