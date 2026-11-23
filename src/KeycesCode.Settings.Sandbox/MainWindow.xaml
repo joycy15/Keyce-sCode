@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:git="clr-namespace:KeycesCode.Settings.Git;assembly=KeycesCode.Settings"
         xmlns:set="clr-namespace:KeycesCode.Settings;assembly=KeycesCode.Settings"
+        xmlns:ai="clr-namespace:KeycesCode.Assistant;assembly=KeycesCode.Assistant"
         Title="Keyce'sCode — Bac à sable (Membre 5)" Height="720" Width="1150"
         Background="{DynamicResource Brush.Background}"
         PreviewKeyDown="Window_PreviewKeyDown">
@@ -24,15 +25,21 @@
             <DockPanel Background="{DynamicResource Brush.ActivityBar}" LastChildFill="False">
                 <RadioButton x:Name="GitTab" DockPanel.Dock="Top" Style="{StaticResource ActivityButton}"
                              Content="⎇" FontFamily="Segoe UI Symbol" IsChecked="True"
-                             ToolTip="Contrôle de code source" Checked="Activity_Checked"/>
+                             ToolTip="Contrôle de code source (Ctrl+Shift+G)" Checked="Activity_Checked"/>
+                <RadioButton x:Name="AssistantTab" DockPanel.Dock="Top" Style="{StaticResource ActivityButton}"
+                             Content="&#xE8BD;" FontFamily="Segoe MDL2 Assets"
+                             ToolTip="Assistant IA (Ctrl+Shift+I)" Checked="Activity_Checked"/>
                 <RadioButton x:Name="SettingsTab" DockPanel.Dock="Bottom" Style="{StaticResource ActivityButton}"
                              Content="&#xE713;" ToolTip="Paramètres (Ctrl+,)" Checked="Activity_Checked"/>
             </DockPanel>
 
-            <!-- Barre latérale : le panneau Git -->
+            <!-- Barre latérale : Git ou l'assistant (un seul visible à la fois) -->
             <Border x:Name="SideBar" Grid.Column="1" Background="{DynamicResource Brush.Panel}"
                     BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,1,0">
-                <git:GitPanel x:Name="GitView" BranchChanged="GitView_BranchChanged"/>
+                <Grid>
+                    <git:GitPanel x:Name="GitView" BranchChanged="GitView_BranchChanged"/>
+                    <ai:AssistantPanel x:Name="AssistantView" Visibility="Collapsed"/>
+                </Grid>
             </Border>
 
             <GridSplitter x:Name="Splitter" Grid.Column="2" Width="4" HorizontalAlignment="Stretch"

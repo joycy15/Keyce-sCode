@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using KeycesCode.Settings.KeyBindings;
+using KeycesCode.Assistant;
 
 namespace KeycesCode.Settings.Sandbox;
 
@@ -9,6 +10,7 @@ public partial class App : Application
     public static ThemeService Themes { get; } = new();
     public static KeyBindingService KeyBindings { get; } = new(Settings);
 
+    public static OllamaAssistantService Assistant { get; } = new();
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);

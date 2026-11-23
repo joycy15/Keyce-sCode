@@ -17,6 +17,10 @@ public partial class MainWindow : Window
         SettingsEditor.Initialize(App.Settings, App.Themes);
         SettingsEditor.InitializeShortcuts(App.KeyBindings);
 
+        // L'assistant lit le modèle choisi dans les Paramètres
+        AssistantView.Initialize(App.Assistant, () => App.Settings.Current.AssistantModel);
+        App.Settings.SettingsChanged += (_, _) => _ = AssistantView.CheckStatusAsync();
+
         App.Themes.ThemeChanged += (_, _) => UpdateThemeStatus();
         UpdateThemeStatus();
     }
@@ -31,6 +35,9 @@ public partial class MainWindow : Window
 
         keys.Register(new CommandInfo("view.git", "Afficher le contrôle de code source", "Ctrl+Shift+G"),
             () => GitTab.IsChecked = true);
+
+        keys.Register(new CommandInfo("view.assistant", "Afficher l'assistant IA", "Ctrl+Shift+I"),
+            () => AssistantTab.IsChecked = true);
 
         keys.Register(new CommandInfo("git.refresh", "Git : actualiser", "F5"),
             async () => await GitView.RefreshCommandAsync());
@@ -65,7 +72,9 @@ public partial class MainWindow : Window
 
     private void Activity_Checked(object sender, RoutedEventArgs e)
     {
-        if (SettingsTab is null || SettingsEditor is null || SideBar is null) return;
+        // Pendant InitializeComponent, certains éléments n'existent pas encore
+        if (SettingsTab is null || SettingsEditor is null || SideBar is null
+            || GitView is null || AssistantView is null) return;
 
         var showSettings = SettingsTab.IsChecked == true;
 
@@ -84,6 +93,10 @@ public partial class MainWindow : Window
         SideBar.Visibility = showSettings ? Visibility.Collapsed : Visibility.Visible;
         Splitter.Visibility = showSettings ? Visibility.Collapsed : Visibility.Visible;
         SettingsEditor.Visibility = showSettings ? Visibility.Visible : Visibility.Collapsed;
+
+        // Dans la barre latérale : Git OU l'assistant
+        GitView.Visibility = GitTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        AssistantView.Visibility = AssistantTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void GitView_BranchChanged(object? sender, string branch) =>
