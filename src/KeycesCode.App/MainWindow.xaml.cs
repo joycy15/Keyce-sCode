@@ -366,13 +366,23 @@ public partial class MainWindow : Window
         try
         {
             await _terminal.SendInputAsync(command);
-            // Demande discrètement le dossier courant (au cas où la commande était un « cd »)
-            await _terminal.SendInputAsync($"Write-Output ('{CwdMarker}' + (Get-Location).Path)");
+
+            // Seulement après un changement de dossier : on demande discrètement le nouveau dossier.
+            // (Jamais après un programme : la ligne technique serait lue par le programme comme une saisie.)
+            if (ChangesDirectory(command))
+                await _terminal.SendInputAsync($"Write-Output ('{CwdMarker}' + (Get-Location).Path)");
         }
         catch (Exception ex)
         {
             _terminalWriter.WriteLine(ex.Message, "ErrorBrush");
         }
+    }
+
+    private static bool ChangesDirectory(string command)
+    {
+        string first = command.TrimStart().Split(' ', 2)[0].ToLowerInvariant();
+        if (first.StartsWith("cd.") || first.StartsWith("cd\\")) return true;   // cd.. et cd\
+        return first is "cd" or "chdir" or "sl" or "set-location" or "pushd" or "popd" or "push-location" or "pop-location";
     }
 
     private void BrowseHistory(int direction)
