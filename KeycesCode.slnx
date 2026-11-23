@@ -2,8 +2,9 @@
   <Folder Name="/src/">
     <Project Path="src/KeycesCode.Assistant/KeycesCode.Assistant.csproj" />
     <Project Path="src/KeycesCode.Core/KeycesCode.Core.csproj" />
-    <Project Path="src/KeycesCode.Settings.Sandbox/KeycesCode.Settings.Sandbox.csproj" Id="602c3ddd-45b0-4543-beca-b6e470eba2ec" />
+    <Project Path="src/KeycesCode.Execution/KeycesCode.Execution.csproj" />
     <Project Path="src/KeycesCode.Settings/KeycesCode.Settings.csproj" />
+    <Project Path="src/KeycesCode.Settings.Sandbox/KeycesCode.Settings.Sandbox.csproj" Id="602c3ddd-45b0-4543-beca-b6e470eba2ec" />
     <Project Path="src/KeycesCode.Tests/KeycesCode.Tests.csproj" />
   </Folder>
 </Solution>
