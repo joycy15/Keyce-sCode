@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\KeyceCode.Files\KeyceCode.Files.csproj" />
+    <ProjectReference Include="..\KeycesCode.Files\KeycesCode.Files.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -11,4 +11,5 @@
   </PropertyGroup>
 
 </Project>
+
 

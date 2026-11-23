@@ -1,4 +1,4 @@
-namespace KeyceCode.Files.Interfaces
+﻿namespace KeycesCode.Files.Interfaces
 {
     public interface IFileService
     {

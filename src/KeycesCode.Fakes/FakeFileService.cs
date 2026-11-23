@@ -1,6 +1,6 @@
-using KeyceCode.Files.Interfaces;
+﻿using KeycesCode.Files.Interfaces;
 
-namespace KeyceCode.Fakes
+namespace KeycesCode.Fakes
 {
     public class FakeFileService : IFileService
     {
