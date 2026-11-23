@@ -1,8 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
-using KeycesCode.Execution.Models;
 using KeycesCode.Execution.Services;
 using Xunit;
 
@@ -14,16 +14,22 @@ namespace KeycesCode.Tests
         public async Task StartSessionAndSendInputAsync_ShouldExecuteCommandAndEmitOutput()
         {
             string tempDir = Path.GetTempPath();
-            var received = new List<string>();
+            var received = new ConcurrentQueue<string>();
 
             using var terminal = new TerminalService();
-            terminal.OutputReceived += (_, e) => received.Add(e.Line);
+            terminal.OutputReceived += (_, e) => received.Enqueue(e.Line);
 
             await terminal.StartSessionAsync(tempDir);
             Assert.True(terminal.IsSessionActive);
 
             await terminal.SendInputAsync("echo KEYCESCODE_TERM_PING");
-            await Task.Delay(1000);
+
+            var deadline = DateTime.UtcNow.AddSeconds(4);
+            while (DateTime.UtcNow < deadline && !received.Any(line => line.Contains("KEYCESCODE_TERM_PING")))
+            {
+                await Task.Delay(100);
+            }
+
             await terminal.StopSessionAsync();
 
             Assert.False(terminal.IsSessionActive);
