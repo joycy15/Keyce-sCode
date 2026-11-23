@@ -75,20 +75,6 @@ namespace KeycesCode.Execution.Services
 
             using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
 
-            process.OutputDataReceived += (_, e) =>
-            {
-                if (e.Data == null) return;
-                stdoutBuilder.AppendLine(e.Data);
-                EmitOutput(e.Data, OutputStreamType.StandardOutput);
-            };
-
-            process.ErrorDataReceived += (_, e) =>
-            {
-                if (e.Data == null) return;
-                stderrBuilder.AppendLine(e.Data);
-                EmitOutput(e.Data, OutputStreamType.StandardError);
-            };
-
             lock (_syncLock)
             {
                 _currentProcess = process;
@@ -101,10 +87,13 @@ namespace KeycesCode.Execution.Services
                 if (!process.Start())
                     throw new InvalidOperationException("Impossible de démarrer le processus d'exécution.");
 
-                process.BeginOutputReadLine();
-                process.BeginErrorReadLine();
+                // Lecture caractère par caractère (et non ligne par ligne) : une question écrite
+                // avec Console.Write("Nombre : ") s'affiche tout de suite, avant la réponse.
+                Task stdoutPump = PumpAsync(process.StandardOutput, OutputStreamType.StandardOutput, stdoutBuilder);
+                Task stderrPump = PumpAsync(process.StandardError, OutputStreamType.StandardError, stderrBuilder);
 
                 await process.WaitForExitAsync(cancellationToken);
+                await Task.WhenAll(stdoutPump, stderrPump);
                 stopwatch.Stop();
 
                 int exitCode = process.ExitCode;
@@ -268,6 +257,54 @@ namespace KeycesCode.Execution.Services
 
             await proc.StandardInput.WriteLineAsync(text.AsMemory(), cancellationToken);
             await proc.StandardInput.FlushAsync(cancellationToken);
+        }
+
+        // Lit un flux de sortie au fil de l'eau. Une ligne complète est envoyée dès son retour à la ligne ;
+        // un début de ligne qui attend (une question sans retour à la ligne) est envoyé après 150 ms de silence.
+        private Task PumpAsync(StreamReader reader, OutputStreamType type, StringBuilder all)
+        {
+            return Task.Run(async () =>
+            {
+                var buffer = new char[1024];
+                var line = new StringBuilder();
+
+                while (true)
+                {
+                    Task<int> read = reader.ReadAsync(buffer, 0, buffer.Length);
+
+                    if (line.Length > 0 && await Task.WhenAny(read, Task.Delay(150)) != read)
+                    {
+                        all.Append(line);
+                        EmitOutput(line.ToString(), type);
+                        line.Clear();
+                    }
+
+                    int count = await read;
+                    if (count == 0) break;
+
+                    for (int i = 0; i < count; i++)
+                    {
+                        char c = buffer[i];
+                        if (c == '\n')
+                        {
+                            if (line.Length > 0 && line[^1] == '\r') line.Length--;
+                            all.AppendLine(line.ToString());
+                            EmitOutput(line.ToString(), type);
+                            line.Clear();
+                        }
+                        else
+                        {
+                            line.Append(c);
+                        }
+                    }
+                }
+
+                if (line.Length > 0)
+                {
+                    all.Append(line);
+                    EmitOutput(line.ToString(), type);
+                }
+            });
         }
 
         private static string ResolveWorkingDirectory(string filePath, string? workingDirectory)
