@@ -177,6 +177,7 @@ namespace KeycesCode.Execution.Services
                     WorkingDirectory = workingDir,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
+                    RedirectStandardInput = true,   // pour taper les commandes du débogueur
                     UseShellExecute = false,
                     CreateNoWindow = true
                 },
@@ -252,6 +253,21 @@ namespace KeycesCode.Execution.Services
             }
 
             return Task.CompletedTask;
+        }
+
+        public async Task SendInputAsync(string text, CancellationToken cancellationToken = default)
+        {
+            Process? proc;
+            lock (_syncLock)
+            {
+                proc = _currentProcess;
+            }
+
+            if (proc == null || proc.HasExited)
+                throw new InvalidOperationException("Aucun programme n'est en cours d'exécution.");
+
+            await proc.StandardInput.WriteLineAsync(text.AsMemory(), cancellationToken);
+            await proc.StandardInput.FlushAsync(cancellationToken);
         }
 
         private static string ResolveWorkingDirectory(string filePath, string? workingDirectory)

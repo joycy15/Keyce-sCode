@@ -14,5 +14,8 @@ namespace KeycesCode.Execution.Interfaces
         Task<ExecutionResult> RunAsync(ExecutionRequest request, CancellationToken cancellationToken = default);
         Task<DebugSessionInfo> StartDebugAsync(ExecutionRequest request, CancellationToken cancellationToken = default);
         Task StopCurrentProcessAsync();
+
+        // Envoie une ligne au programme en cours (ce qu'il lit avec Console.ReadLine / input())
+        Task SendInputAsync(string text, CancellationToken cancellationToken = default);
     }
 }

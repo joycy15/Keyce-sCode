@@ -34,6 +34,7 @@
     <SolidColorBrush x:Key="MenuHighlight" Color="#04395E"/>
     <SolidColorBrush x:Key="ScrollThumb" Color="#424242"/>
     <SolidColorBrush x:Key="ScrollThumbHover" Color="#4F4F4F"/>
+    <SolidColorBrush x:Key="TerminalCommand" Color="#DCDCAA"/>
     <SolidColorBrush x:Key="AccentBrush" Color="#0078D4"/>
     <SolidColorBrush x:Key="SuccessBrush" Color="#89D185"/>
     <SolidColorBrush x:Key="ErrorBrush" Color="#F14C4C"/>

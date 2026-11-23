@@ -59,6 +59,8 @@ public partial class MainWindow : Window
         ShowPanel("Explorer");
         _ = SourceControlPanel.OpenFolderAsync(path);
         _ = _terminal.ChangeDirectoryAsync(path);
+        _terminalCwd = path;
+        UpdatePrompt();
         Title = $"{Path.GetFileName(path.TrimEnd('\\', '/'))} - Keyce'sCode";
         StatusText.Text = $"Workspace: {path}";
 
@@ -147,11 +149,43 @@ public partial class MainWindow : Window
 
     // ----- Membre 4 : terminal et exécution -----
 
+    // Écrivains en couleur pour TERMINAL, OUTPUT et DEBUG CONSOLE
+    private ConsoleWriter _terminalWriter = null!;
+    private ConsoleWriter _outputWriter = null!;
+    private ConsoleWriter _debugWriter = null!;
+    private ConsoleWriter _runWriter = null!;   // Output (exécution) ou Debug Console (débogage)
+
+    // Dossier courant du terminal, affiché dans l'invite « PS dossier> »
+    private string _terminalCwd = "";
+
+    // Historique des commandes (flèches ↑ / ↓)
+    private readonly List<string> _history = [];
+    private int _historyIndex;
+
+    // Complétion avec Tab
+    private List<string> _tabMatches = [];
+    private int _tabIndex;
+    private string _tabPrefix = "";
+
+    // Ligne invisible envoyée après chaque commande pour connaître le dossier courant
+    private const string CwdMarker = "__KC_CWD__";
+
+    private static readonly System.Text.RegularExpressions.Regex PromptLine =
+        new(@"^PS (?<path>.+?)>\s?(?<command>.*)$");
+
     private void InitializeExecution()
     {
+        _terminalWriter = new ConsoleWriter(TerminalOutput, TerminalContent);
+        _outputWriter = new ConsoleWriter(OutputContent);
+        _debugWriter = new ConsoleWriter(DebugConsoleContent);
+        _runWriter = _outputWriter;
+        _outputWriter.WriteLine("Aucune sortie pour l'instant. Ctrl+F5 exécute le fichier ouvert.", "MutedText");
+        _debugWriter.WriteLine("Console de débogage prête. F5 lance le débogage du fichier ouvert.", "MutedText");
+
         // Les services envoient leurs lignes depuis d'autres threads : on repasse par le Dispatcher
-        _terminal.OutputReceived += (_, e) => Dispatcher.InvokeAsync(() => AppendLine(TerminalOutput, e.Line));
-        _runner.OutputReceived += (_, e) => Dispatcher.InvokeAsync(() => AppendLine(_runTarget, e.Line));
+        _terminal.OutputReceived += (_, e) => Dispatcher.InvokeAsync(() => WriteTerminalLine(e.Line, e.StreamType));
+        _runner.OutputReceived += (_, e) => Dispatcher.InvokeAsync(() => WriteRunLine(e.Line, e.StreamType));
+        _runner.ProcessExited += (_, _) => Dispatcher.InvokeAsync(UpdateRunInputBar);
 
         Closed += async (_, _) =>
         {
@@ -159,50 +193,336 @@ public partial class MainWindow : Window
             await _terminal.StopSessionAsync();
         };
 
-        _ = StartTerminalAsync();
+        _ = StartTerminalAsync(HasWorkspace
+            ? _workspacePath
+            : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
     }
 
-    private TextBox _runTarget = null!;   // Output (exécution) ou Debug Console (débogage)
-
-    private async Task StartTerminalAsync()
+    private async Task StartTerminalAsync(string directory)
     {
-        TerminalOutput.Clear();
+        _terminalWriter.Clear();
+        _terminalCwd = directory;
+        UpdatePrompt();
         try
         {
-            await _terminal.StartSessionAsync(HasWorkspace
-                ? _workspacePath
-                : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+            await _terminal.StartSessionAsync(directory);
         }
         catch (Exception ex)
         {
-            AppendLine(TerminalOutput, $"[Erreur] Impossible de démarrer le terminal : {ex.Message}");
+            _terminalWriter.WriteLine($"Impossible de démarrer le terminal : {ex.Message}", "ErrorBrush");
         }
     }
 
-    private static void AppendLine(TextBox box, string line)
+    private void UpdatePrompt()
     {
-        box.AppendText(line + Environment.NewLine);
-        box.ScrollToEnd();
+        TerminalPrompt.Text = $"PS {_terminalCwd}> ";
+        TerminalPrompt.ToolTip = _terminalCwd;
     }
 
-    private async void TerminalInput_PreviewKeyDown(object sender, KeyEventArgs e)
+    // Une ligne venant de PowerShell : on la colore selon son type
+    private void WriteTerminalLine(string line, OutputStreamType type)
+    {
+        // Lignes techniques (dossier courant) : jamais affichées
+        if (line.Contains(CwdMarker, StringComparison.Ordinal))
+        {
+            if (line.StartsWith(CwdMarker, StringComparison.Ordinal))
+            {
+                _terminalCwd = line[CwdMarker.Length..];
+                UpdatePrompt();
+            }
+            return;
+        }
+
+        if (type == OutputStreamType.StandardError)
+        {
+            _terminalWriter.WriteLine(line, "ErrorBrush");
+            return;
+        }
+
+        if (type == OutputStreamType.SystemMessage)
+        {
+            _terminalWriter.WriteLine(line, "MutedText");
+            return;
+        }
+
+        // « PS D:\dossier> commande » : invite normale, commande en couleur
+        var prompt = PromptLine.Match(line);
+        if (prompt.Success)
+        {
+            _terminalWriter.Write($"PS {prompt.Groups["path"].Value}> ", "PrimaryText");
+            _terminalWriter.WriteLine(prompt.Groups["command"].Value, "TerminalCommand");
+            return;
+        }
+
+        _terminalWriter.WriteLine(line, "PrimaryText");
+    }
+
+    // Une ligne d'exécution (OUTPUT ou DEBUG CONSOLE)
+    private void WriteRunLine(string line, OutputStreamType type)
+    {
+        string color = type switch
+        {
+            OutputStreamType.StandardError => "ErrorBrush",
+            OutputStreamType.SystemMessage when line.Contains("Code de sortie : 0") => "SuccessBrush",
+            OutputStreamType.SystemMessage when line.StartsWith("[Erreur]") || line.StartsWith("[Annulé]")
+                => "ErrorBrush",
+            OutputStreamType.SystemMessage => "MutedText",
+            _ => "PrimaryText"
+        };
+        _runWriter.WriteLine(line, color);
+    }
+
+    // La zone de saisie n'apparaît que si un programme tourne et qu'on regarde Output ou Debug Console
+    private void UpdateRunInputBar()
+    {
+        bool runTab = OutputContent.Visibility == Visibility.Visible ||
+                      DebugConsoleContent.Visibility == Visibility.Visible;
+        RunInputBar.Visibility = _runner.IsRunning && runTab ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async void RunInput_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter) return;
         e.Handled = true;
 
-        string command = TerminalInput.Text;
-        TerminalInput.Clear();   // PowerShell réaffiche lui-même la commande tapée
+        string text = RunInput.Text;
+        RunInput.Clear();
+        _runWriter.WriteLine(text, "TerminalCommand");   // on affiche ce qu'on a tapé, comme une console
         try
         {
-            await _terminal.SendInputAsync(command);
+            await _runner.SendInputAsync(text);
         }
         catch (Exception ex)
         {
-            AppendLine(TerminalOutput, $"[Erreur] {ex.Message}");
+            _runWriter.WriteLine(ex.Message, "ErrorBrush");
+            UpdateRunInputBar();
         }
     }
 
-    private void ShowBottomTab(Button tab) => BottomPanelTab_Click(tab, new RoutedEventArgs());
+    private async void TerminalInput_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Tab) _tabMatches = [];
+
+        switch (e.Key)
+        {
+            case Key.Enter:
+                e.Handled = true;
+                await SendTerminalCommandAsync(TerminalInput.Text);
+                break;
+
+            case Key.Up:
+                e.Handled = true;
+                BrowseHistory(-1);
+                break;
+
+            case Key.Down:
+                e.Handled = true;
+                BrowseHistory(+1);
+                break;
+
+            case Key.Tab:
+                e.Handled = true;
+                CompletePath();
+                break;
+
+            // Ctrl+C sans sélection : arrête la commande en cours (comme dans VS Code)
+            case Key.C when Keyboard.Modifiers == ModifierKeys.Control && TerminalInput.SelectionLength == 0:
+                e.Handled = true;
+                await InterruptTerminalAsync();
+                break;
+
+            // Ctrl+L : efface l'écran
+            case Key.L when Keyboard.Modifiers == ModifierKeys.Control:
+                e.Handled = true;
+                _terminalWriter.Clear();
+                break;
+        }
+    }
+
+    private async Task SendTerminalCommandAsync(string command)
+    {
+        TerminalInput.Clear();
+
+        if (!string.IsNullOrWhiteSpace(command) &&
+            (_history.Count == 0 || _history[^1] != command))
+        {
+            _history.Add(command);
+        }
+        _historyIndex = _history.Count;
+
+        // cls / clear : on efface nous-mêmes l'écran
+        if (command.Trim() is "cls" or "clear" or "Clear-Host")
+        {
+            _terminalWriter.Clear();
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(command))
+        {
+            _terminalWriter.WriteLine($"PS {_terminalCwd}> ", "PrimaryText");
+            return;
+        }
+
+        try
+        {
+            await _terminal.SendInputAsync(command);
+            // Demande discrètement le dossier courant (au cas où la commande était un « cd »)
+            await _terminal.SendInputAsync($"Write-Output ('{CwdMarker}' + (Get-Location).Path)");
+        }
+        catch (Exception ex)
+        {
+            _terminalWriter.WriteLine(ex.Message, "ErrorBrush");
+        }
+    }
+
+    private void BrowseHistory(int direction)
+    {
+        if (_history.Count == 0) return;
+
+        _historyIndex = Math.Clamp(_historyIndex + direction, 0, _history.Count);
+        TerminalInput.Text = _historyIndex < _history.Count ? _history[_historyIndex] : "";
+        TerminalInput.CaretIndex = TerminalInput.Text.Length;
+    }
+
+    // Tab : complète le nom de fichier ou de dossier (Tab encore = suggestion suivante)
+    private void CompletePath()
+    {
+        if (_tabMatches.Count == 0)
+        {
+            string text = TerminalInput.Text;
+            int start = text.LastIndexOf(' ') + 1;
+            _tabPrefix = text[..start];
+            string partial = text[start..].Trim('"');
+
+            string baseDir = _terminalCwd;
+            string namePart = partial;
+            int slash = partial.LastIndexOfAny(['\\', '/']);
+            string folderPart = slash >= 0 ? partial[..(slash + 1)] : "";
+            if (slash >= 0)
+            {
+                baseDir = Path.Combine(_terminalCwd, folderPart);
+                namePart = partial[(slash + 1)..];
+            }
+
+            if (!Directory.Exists(baseDir)) return;
+            try
+            {
+                _tabMatches = Directory.EnumerateFileSystemEntries(baseDir, namePart + "*")
+                    .Select(entry => folderPart + Path.GetFileName(entry) +
+                                     (Directory.Exists(entry) ? "\\" : ""))
+                    .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return;
+            }
+
+            _tabIndex = 0;
+            if (_tabMatches.Count == 0) return;
+        }
+        else
+        {
+            _tabIndex = (_tabIndex + 1) % _tabMatches.Count;
+        }
+
+        string match = _tabMatches[_tabIndex];
+        if (match.Contains(' ')) match = $"\"{match}\"";
+        TerminalInput.Text = _tabPrefix + match;
+        TerminalInput.CaretIndex = TerminalInput.Text.Length;
+    }
+
+    // PowerShell ne reçoit pas Ctrl+C quand il est redirigé : on relance donc une session propre
+    private async Task InterruptTerminalAsync()
+    {
+        _terminalWriter.WriteLine("^C", "ErrorBrush");
+        string directory = _terminalCwd;
+        await _terminal.StopSessionAsync();
+        _terminalCwd = directory;
+        try
+        {
+            await _terminal.StartSessionAsync(directory);
+        }
+        catch (Exception ex)
+        {
+            _terminalWriter.WriteLine(ex.Message, "ErrorBrush");
+        }
+        UpdatePrompt();
+    }
+
+    // Cliquer dans le terminal place le curseur sur la ligne de commande (sauf si on sélectionne du texte)
+    private void TerminalArea_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (TerminalOutput.Selection.IsEmpty) TerminalInput.Focus();
+    }
+
+    // ----- Panneau du bas : masquer, agrandir -----
+
+    private GridLength _bottomPanelHeight = new(240);
+    private bool _panelMaximized;
+
+    private void ShowBottomPanel()
+    {
+        if (BottomPanel.Visibility == Visibility.Visible) return;
+        BottomPanel.Visibility = Visibility.Visible;
+        BottomPanelRow.MinHeight = 90;
+        BottomPanelRow.Height = _bottomPanelHeight;
+    }
+
+    private void HideBottomPanel()
+    {
+        if (_panelMaximized) MaximizePanel_Click(this, new RoutedEventArgs());
+        if (BottomPanelRow.ActualHeight > 0) _bottomPanelHeight = BottomPanelRow.Height;
+        BottomPanel.Visibility = Visibility.Collapsed;
+        BottomPanelRow.MinHeight = 0;
+        BottomPanelRow.Height = new GridLength(0);
+    }
+
+    private void TogglePanel()
+    {
+        if (BottomPanel.Visibility == Visibility.Visible) HideBottomPanel();
+        else ShowBottomPanel();
+    }
+
+    private void TogglePanel_Click(object sender, RoutedEventArgs e) => TogglePanel();
+
+    private void HidePanel_Click(object sender, RoutedEventArgs e) => HideBottomPanel();
+
+    private void MaximizePanel_Click(object sender, RoutedEventArgs e)
+    {
+        _panelMaximized = !_panelMaximized;
+        if (_panelMaximized)
+        {
+            _bottomPanelHeight = BottomPanelRow.Height;
+            EditorRow.MinHeight = 0;
+            EditorRow.Height = new GridLength(0);
+            BottomPanelRow.Height = new GridLength(1, GridUnitType.Star);
+            MaximizePanelIcon.Text = "\uE73F";
+            MaximizePanelButton.ToolTip = "Restaurer la taille du panneau";
+        }
+        else
+        {
+            EditorRow.MinHeight = 80;
+            EditorRow.Height = new GridLength(1, GridUnitType.Star);
+            BottomPanelRow.Height = _bottomPanelHeight;
+            MaximizePanelIcon.Text = "\uE740";
+            MaximizePanelButton.ToolTip = "Agrandir le panneau";
+        }
+    }
+
+    // Efface le contenu de l'onglet affiché
+    private void ClearPanel_Click(object sender, RoutedEventArgs e)
+    {
+        if (OutputContent.Visibility == Visibility.Visible) _outputWriter.Clear();
+        else if (DebugConsoleContent.Visibility == Visibility.Visible) _debugWriter.Clear();
+        else if (TerminalContent.Visibility == Visibility.Visible) _terminalWriter.Clear();
+    }
+
+    private void ShowBottomTab(Button tab)
+    {
+        ShowBottomPanel();
+        BottomPanelTab_Click(tab, new RoutedEventArgs());
+    }
 
     private void ShowTerminal()
     {
@@ -212,12 +532,12 @@ public partial class MainWindow : Window
 
     private void ShowTerminal_Click(object sender, RoutedEventArgs e) => ShowTerminal();
 
-    private void ClearTerminal_Click(object sender, RoutedEventArgs e) => TerminalOutput.Clear();
+    private void ClearTerminal_Click(object sender, RoutedEventArgs e) => _terminalWriter.Clear();
 
     private async void RestartTerminal_Click(object sender, RoutedEventArgs e)
     {
         await _terminal.StopSessionAsync();
-        await StartTerminalAsync();
+        await StartTerminalAsync(_terminalCwd.Length > 0 ? _terminalCwd : _workspacePath);
         ShowTerminal();
     }
 
@@ -245,23 +565,33 @@ public partial class MainWindow : Window
 
         if (document.IsDirty) SaveDocument(document);
 
-        _runTarget = debug ? DebugConsoleContent : OutputContent;
-        _runTarget.Clear();
+        _runWriter = debug ? _debugWriter : _outputWriter;
+        _runWriter.Clear();
         ShowBottomTab(debug ? DebugConsoleTab : OutputTab);
         StatusText.Text = debug ? $"Débogage de {Path.GetFileName(path)}..." : $"Exécution de {Path.GetFileName(path)}...";
 
         try
         {
             var request = new ExecutionRequest(path, Path.GetDirectoryName(path));
-            if (debug) await _runner.StartDebugAsync(request);
-            else await _runner.RunAsync(request);
-            StatusText.Text = "Exécution terminée";
+            var running = debug ? _runner.StartDebugAsync(request) : (Task)_runner.RunAsync(request);
+
+            // Pendant l'exécution : zone de saisie pour répondre au programme
+            await Task.Delay(300);
+            UpdateRunInputBar();
+            if (RunInputBar.Visibility == Visibility.Visible) RunInput.Focus();
+
+            await running;
+            StatusText.Text = debug ? "Débogage démarré" : "Exécution terminée";
         }
         catch (Exception ex)
         {
             // Outil manquant (python, node...), fichier introuvable, etc.
-            AppendLine(_runTarget, $"[Erreur] {ex.Message}");
+            _runWriter.WriteLine($"[Erreur] {ex.Message}", "ErrorBrush");
             StatusText.Text = "Échec de l'exécution";
+        }
+        finally
+        {
+            UpdateRunInputBar();
         }
     }
 
@@ -357,6 +687,8 @@ public partial class MainWindow : Window
             async () => await _runner.StopCurrentProcessAsync());
         keys.Register(new CommandInfo("terminal.show", "Afficher le terminal", "Ctrl+Shift+T"),
             ShowTerminal);
+        keys.Register(new CommandInfo("view.panel", "Afficher / masquer le panneau du bas", "Ctrl+J"),
+            TogglePanel);
         keys.Register(new CommandInfo("git.refresh", "Git : actualiser", "Ctrl+Shift+R"),
             async () => await SourceControlPanel.RefreshCommandAsync());
         keys.Register(new CommandInfo("git.pull", "Git : pull", "Ctrl+Alt+L"),
@@ -1129,6 +1461,7 @@ public partial class MainWindow : Window
         {
             tab.Tag = tab.Tag?.ToString()?.Replace("Active:", "", StringComparison.Ordinal);
             tab.Foreground = (Brush)FindResource("SecondaryText");
+            tab.ClearValue(BackgroundProperty);
         }
 
         switch (selectedTab.Tag?.ToString())
@@ -1148,6 +1481,8 @@ public partial class MainWindow : Window
         }
 
         selectedTab.Tag = $"Active:{selectedTab.Tag}";
+        UpdateRunInputBar();
+        selectedTab.SetResourceReference(BackgroundProperty, "EditorBackground");   // onglet actif en relief
         selectedTab.Foreground = (Brush)FindResource("AccentBrush");
         StatusText.Text = $"{selectedTab.Tag.ToString()?.Split(':')[1]} panel selected";
     }
