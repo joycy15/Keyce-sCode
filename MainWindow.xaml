@@ -1,12 +1,126 @@
-﻿<Window x:Class="Keyce_sCode.MainWindow"
+<Window x:Class="Keyce_sCode.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:Keyce_sCode"
-        mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        xmlns:avalonEdit="http://icsharpcode.net/sharpdevelop/avalonedit"
+        Title="Keyce's Code" Height="800" Width="1280" MinHeight="560" MinWidth="900"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource AppBackgroundBrush}"
+        PreviewKeyDown="Window_PreviewKeyDown"
+        Closing="Window_Closing">
+    <Window.Resources>
+        <SolidColorBrush x:Key="AppBackgroundBrush" Color="#1E1E1E" />
+        <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#252526" />
+        <SolidColorBrush x:Key="ToolbarBackgroundBrush" Color="#333333" />
+        <SolidColorBrush x:Key="EditorBackgroundBrush" Color="#1E1E1E" />
+        <SolidColorBrush x:Key="ForegroundBrush" Color="#D4D4D4" />
+        <SolidColorBrush x:Key="MutedForegroundBrush" Color="#9DA0A5" />
+        <SolidColorBrush x:Key="BorderBrush" Color="#3C3C3C" />
+        <Style TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
+            <Setter Property="Background" Value="{DynamicResource ToolbarBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="Margin" Value="3,0" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style TargetType="TreeView">
+            <Setter Property="Background" Value="{DynamicResource PanelBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style TargetType="TabControl">
+            <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
+        </Style>
+        <Style TargetType="TabItem">
+            <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
+            <Setter Property="Padding" Value="12,6" />
+        </Style>
+    </Window.Resources>
 
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="{DynamicResource ToolbarBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="8">
+            <DockPanel LastChildFill="True">
+                <TextBlock DockPanel.Dock="Right" Text="Keyce's Code" FontWeight="SemiBold"
+                           Foreground="{DynamicResource MutedForegroundBrush}" VerticalAlignment="Center"
+                           Margin="12,0" />
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="Nouveau" ToolTip="Nouveau fichier (Ctrl+N)" Click="NewFile_Click" />
+                    <Button Content="Ouvrir" ToolTip="Ouvrir un fichier (Ctrl+O)" Click="OpenFile_Click" />
+                    <Button Content="Dossier" ToolTip="Ouvrir un dossier" Click="OpenFolder_Click" />
+                    <Button Content="Enregistrer" ToolTip="Enregistrer (Ctrl+S)" Click="SaveFile_Click" />
+                    <Button x:Name="RunButton" Content="Exécuter" ToolTip="Exécuter sans déboguer (Ctrl+F5)" Click="RunFile_Click" />
+                    <Button x:Name="DebugButton" Content="Déboguer" ToolTip="Déboguer / continuer (F5)" Click="DebugFile_Click" />
+                    <Button x:Name="StepInButton" Content="Entrer" ToolTip="Entrer dans l’appel (F11)" IsEnabled="False" Click="StepIn_Click" />
+                    <Button x:Name="StepOverButton" Content="Pas à pas" ToolTip="Pas à pas (F10)" IsEnabled="False" Click="StepOver_Click" />
+                    <Button x:Name="StepOutButton" Content="Sortir" ToolTip="Sortir de l’appel (Maj+F11)" IsEnabled="False" Click="StepOut_Click" />
+                    <Button x:Name="StopDebugButton" Content="Arrêter debug" ToolTip="Arrêter le débogage (Maj+F5)" IsEnabled="False" Click="StopDebug_Click" />
+                    <Button x:Name="StopButton" Content="Arrêter" IsEnabled="False" Click="StopRun_Click" />
+                    <Button x:Name="ThemeButton" Content="Thème clair" Click="ToggleTheme_Click" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="245" MinWidth="180" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="{DynamicResource PanelBackgroundBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="8,12,8,8">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="+" ToolTip="Nouveau fichier" Click="NewWorkspaceFile_Click" />
+                            <Button Content="+" ToolTip="Nouveau dossier" Click="NewWorkspaceFolder_Click" />
+                            <Button Content="↻" ToolTip="Actualiser l’explorateur" Click="RefreshWorkspace_Click" />
+                        </StackPanel>
+                        <TextBlock Text="EXPLORATEUR" FontSize="11" FontWeight="Bold"
+                                   Foreground="{DynamicResource MutedForegroundBrush}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <TreeView x:Name="FileTree" Margin="6,0,4,8"
+                              SelectedItemChanged="FileTree_SelectedItemChanged"
+                              MouseDoubleClick="FileTree_MouseDoubleClick" />
+                </DockPanel>
+            </Border>
+
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="190" MinHeight="110" />
+                </Grid.RowDefinitions>
+
+                <TabControl x:Name="EditorTabs" Grid.Row="0" SelectionChanged="EditorTabs_SelectionChanged"
+                            BorderThickness="0" />
+                <TabControl Grid.Row="1" BorderThickness="0,1,0,0"
+                            BorderBrush="{DynamicResource BorderBrush}">
+                    <TabItem x:Name="ConsoleTab" Header="Console / sortie">
+                        <TextBox x:Name="ConsoleOutput" IsReadOnly="True" AcceptsReturn="True"
+                                 TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto"
+                                 HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="13"
+                                 Background="{DynamicResource EditorBackgroundBrush}"
+                                 Foreground="{DynamicResource ForegroundBrush}"
+                                 BorderThickness="0" Padding="10" />
+                    </TabItem>
+                </TabControl>
+            </Grid>
+        </Grid>
+
+        <Border Grid.Row="2" Background="{DynamicResource ToolbarBackgroundBrush}" Padding="8,4">
+            <DockPanel>
+                <TextBlock x:Name="WorkspaceStatus" DockPanel.Dock="Left" Text="Aucun dossier ouvert"
+                           Foreground="{DynamicResource ForegroundBrush}" />
+                <TextBlock x:Name="EditorStatus" DockPanel.Dock="Right" Text="Prêt"
+                           Foreground="{DynamicResource ForegroundBrush}" />
+            </DockPanel>
+        </Border>
     </Grid>
 </Window>

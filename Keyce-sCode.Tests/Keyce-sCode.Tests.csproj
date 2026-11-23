@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
+    <Compile Include="..\Services\FileService.cs" Link="FileService.cs" />
+    <Compile Include="..\Services\SyntaxHighlighter.cs" Link="SyntaxHighlighter.cs" />
+    <Compile Include="..\Services\DebugSession.cs" Link="DebugSession.cs" />
+    <Compile Include="..\Services\DebugAdapterClient.cs" Link="DebugAdapterClient.cs" />
+    <Compile Include="..\Services\ExecutionService.cs" Link="ExecutionService.cs" />
+    <Compile Include="..\Services\ExecutableLocator.cs" Link="ExecutableLocator.cs" />
+    <Compile Include="..\Services\LanguageRunners.cs" Link="LanguageRunners.cs" />
+    <Compile Include="..\Services\NodeInspectorClient.cs" Link="NodeInspectorClient.cs" />
+    <Compile Include="..\Services\TypeScriptTooling.cs" Link="TypeScriptTooling.cs" />
+  </ItemGroup>
+</Project>
