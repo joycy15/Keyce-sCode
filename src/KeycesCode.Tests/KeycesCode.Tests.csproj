@@ -23,6 +23,8 @@
     <ProjectReference Include="..\KeycesCode.Settings\KeycesCode.Settings.csproj" />
     <ProjectReference Include="..\KeycesCode.Assistant\KeycesCode.Assistant.csproj" />
     <ProjectReference Include="..\KeycesCode.Execution\KeycesCode.Execution.csproj" />
+    <ProjectReference Include="..\KeycesCode.Files\KeycesCode.Files.csproj" />
+    <ProjectReference Include="..\KeycesCode.Fakes\KeycesCode.Fakes.csproj" />
   </ItemGroup>
 
 </Project>

@@ -14,10 +14,16 @@ public partial class GitPanel : UserControl
 
     public event EventHandler<string>? BranchChanged;
 
+    // Prévient l'application quand l'utilisateur ouvre ou clone un dossier depuis ce panneau
+    public event EventHandler<string>? FolderOpened;
+
+    private const string NoFolderMessage =
+        "Pour utiliser les fonctionnalités Git, ouvre un dossier qui contient un dépôt Git, ou clone un dépôt depuis une URL.";
+
     public GitPanel()
     {
         InitializeComponent();
-        ShowEmpty("Aucun dossier ouvert. Ouvrez un dossier contenant un dépôt Git, ou clonez un dépôt GitHub.");
+        ShowEmpty(NoFolderMessage);
     }
 
     public async Task OpenFolderAsync(string folder)
@@ -33,7 +39,43 @@ public partial class GitPanel : UserControl
     {
         var dialog = new OpenFolderDialog { Title = "Ouvrir un dossier" };
         if (dialog.ShowDialog() == true)
+        {
             await OpenFolderAsync(dialog.FolderName);
+            FolderOpened?.Invoke(this, dialog.FolderName);
+        }
+    }
+
+    // Ferme le dossier : le panneau revient à l'écran « ouvrir ou cloner »
+    public void CloseFolder()
+    {
+        _folder = null;
+        ShowEmpty(NoFolderMessage);
+        BranchChanged?.Invoke(this, "");
+    }
+
+    // Affiche la zone de clonage (bouton « Cloner un dépôt » ou page d'accueil)
+    public void ShowClone()
+    {
+        ClonePanel.Visibility = Visibility.Visible;
+        CloneUrlInput.Focus();
+    }
+
+    private void ShowClone_Click(object sender, RoutedEventArgs e) => ShowClone();
+
+    private void CloneUrlInput_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            Clone_Click(sender, e);
+        }
+    }
+
+    private void DocLink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+    {
+        System.Diagnostics.Process.Start(
+            new System.Diagnostics.ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
+        e.Handled = true;
     }
 
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await RefreshAsync();
@@ -87,6 +129,8 @@ public partial class GitPanel : UserControl
             CloneUrlInput.Clear();
             EmptyInfoText.Text = "";
             await OpenFolderAsync(target);
+            ClonePanel.Visibility = Visibility.Collapsed;
+            FolderOpened?.Invoke(this, target);
             ShowInfo($"Dépôt cloné dans {target}.");
         }
         catch (Exception ex) when (ex is GitException or ArgumentException)

@@ -60,8 +60,12 @@ namespace KeycesCode.Execution.Services
                 RedirectStandardError = true,
                 RedirectStandardInput = true,
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = true,
+                StandardOutputEncoding = Encoding.UTF8,   // accents corrects dans OUTPUT
+                StandardErrorEncoding = Encoding.UTF8
             };
+
+            startInfo.Environment["PYTHONIOENCODING"] = "utf-8";   // Python écrit en UTF-8
 
             if (request.EnvironmentVariables != null)
             {
