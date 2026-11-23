@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using KeycesCode.Execution.Interfaces;
@@ -57,7 +59,11 @@ namespace KeycesCode.Execution.Services
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
-                    CreateNoWindow = true
+                    CreateNoWindow = true,
+                    // Même encodage que la console Windows (CP850 en français) : sinon « R‚pertoire »
+                    StandardOutputEncoding = ShellEncoding(isWindows),
+                    StandardErrorEncoding = ShellEncoding(isWindows),
+                    StandardInputEncoding = ShellEncoding(isWindows)
                 },
                 EnableRaisingEvents = true
             };
@@ -160,6 +166,23 @@ namespace KeycesCode.Execution.Services
             }
 
             return Task.CompletedTask;
+        }
+
+        // PowerShell (Windows) lit et écrit dans l'encodage « OEM » de la console, pas en UTF-8
+        private static Encoding ShellEncoding(bool isWindows)
+        {
+            if (!isWindows)
+                return new UTF8Encoding(false);
+
+            try
+            {
+                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+                return Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.OEMCodePage);
+            }
+            catch (Exception)
+            {
+                return new UTF8Encoding(false);
+            }
         }
 
         private void EmitOutput(string line, OutputStreamType streamType)

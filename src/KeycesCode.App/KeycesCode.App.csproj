@@ -13,6 +13,7 @@
     <ProjectReference Include="..\KeycesCode.Core\KeycesCode.Core.csproj" />
     <ProjectReference Include="..\KeycesCode.Settings\KeycesCode.Settings.csproj" />
     <ProjectReference Include="..\KeycesCode.Assistant\KeycesCode.Assistant.csproj" />
+    <ProjectReference Include="..\KeycesCode.Execution\KeycesCode.Execution.csproj" />
   </ItemGroup>
 
 </Project>

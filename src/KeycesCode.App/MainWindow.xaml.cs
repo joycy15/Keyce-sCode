@@ -11,6 +11,9 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using KeycesCode.Core.Models;
+using KeycesCode.Execution;
+using KeycesCode.Execution.Interfaces;
+using KeycesCode.Execution.Models;
 using KeycesCode.Settings.KeyBindings;
 
 namespace KeycesCode.App;
@@ -23,12 +26,140 @@ public partial class MainWindow : Window
     private string _activePanel = "Explorer";
     private readonly DispatcherTimer _autoSaveTimer = new();
 
+    // Membre 4 : terminal intégré et exécution des fichiers
+    private readonly ITerminalService _terminal = ExecutionModuleFactory.CreateTerminalService();
+    private readonly IRunService _runner = ExecutionModuleFactory.CreateRunService();
+
     public MainWindow()
     {
         InitializeComponent();
         _workspacePath = FindWorkspacePath();
         LoadExplorer();
         InitializeMember5();
+        InitializeExecution();
+    }
+
+    // ----- Membre 4 : terminal et exécution -----
+
+    private void InitializeExecution()
+    {
+        // Les services envoient leurs lignes depuis d'autres threads : on repasse par le Dispatcher
+        _terminal.OutputReceived += (_, e) => Dispatcher.InvokeAsync(() => AppendLine(TerminalOutput, e.Line));
+        _runner.OutputReceived += (_, e) => Dispatcher.InvokeAsync(() => AppendLine(_runTarget, e.Line));
+
+        Closed += async (_, _) =>
+        {
+            await _runner.StopCurrentProcessAsync();
+            await _terminal.StopSessionAsync();
+        };
+
+        _ = StartTerminalAsync();
+    }
+
+    private TextBox _runTarget = null!;   // Output (exécution) ou Debug Console (débogage)
+
+    private async Task StartTerminalAsync()
+    {
+        TerminalOutput.Clear();
+        try
+        {
+            await _terminal.StartSessionAsync(_workspacePath);
+        }
+        catch (Exception ex)
+        {
+            AppendLine(TerminalOutput, $"[Erreur] Impossible de démarrer le terminal : {ex.Message}");
+        }
+    }
+
+    private static void AppendLine(TextBox box, string line)
+    {
+        box.AppendText(line + Environment.NewLine);
+        box.ScrollToEnd();
+    }
+
+    private async void TerminalInput_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        e.Handled = true;
+
+        string command = TerminalInput.Text;
+        TerminalInput.Clear();   // PowerShell réaffiche lui-même la commande tapée
+        try
+        {
+            await _terminal.SendInputAsync(command);
+        }
+        catch (Exception ex)
+        {
+            AppendLine(TerminalOutput, $"[Erreur] {ex.Message}");
+        }
+    }
+
+    private void ShowBottomTab(Button tab) => BottomPanelTab_Click(tab, new RoutedEventArgs());
+
+    private void ShowTerminal()
+    {
+        ShowBottomTab(TerminalTab);
+        TerminalInput.Focus();
+    }
+
+    private void ShowTerminal_Click(object sender, RoutedEventArgs e) => ShowTerminal();
+
+    private void ClearTerminal_Click(object sender, RoutedEventArgs e) => TerminalOutput.Clear();
+
+    private async void RestartTerminal_Click(object sender, RoutedEventArgs e)
+    {
+        await _terminal.StopSessionAsync();
+        await StartTerminalAsync();
+        ShowTerminal();
+    }
+
+    private async void RunFile_Click(object sender, RoutedEventArgs e) => await RunCurrentFileAsync(debug: false);
+
+    private async void DebugFile_Click(object sender, RoutedEventArgs e) => await RunCurrentFileAsync(debug: true);
+
+    private async void StopRun_Click(object sender, RoutedEventArgs e) => await _runner.StopCurrentProcessAsync();
+
+    // Enregistre le fichier ouvert puis l'exécute (Python, JavaScript, C#...) avec le service du Membre 4
+    private async Task RunCurrentFileAsync(bool debug)
+    {
+        if (EditorTabs.SelectedItem is not TabItem { Tag: string path } ||
+            !_documents.TryGetValue(path, out EditorDocument? document))
+        {
+            StatusText.Text = "Ouvre d'abord un fichier à exécuter.";
+            return;
+        }
+
+        if (_runner.IsRunning)
+        {
+            StatusText.Text = "Une exécution est déjà en cours (Shift+F5 pour l'arrêter).";
+            return;
+        }
+
+        if (document.IsDirty) SaveDocument(document);
+
+        _runTarget = debug ? DebugConsoleContent : OutputContent;
+        _runTarget.Clear();
+        ShowBottomTab(debug ? DebugConsoleTab : OutputTab);
+        StatusText.Text = debug ? $"Débogage de {Path.GetFileName(path)}..." : $"Exécution de {Path.GetFileName(path)}...";
+
+        try
+        {
+            var request = new ExecutionRequest(path, Path.GetDirectoryName(path));
+            if (debug) await _runner.StartDebugAsync(request);
+            else await _runner.RunAsync(request);
+            StatusText.Text = "Exécution terminée";
+        }
+        catch (Exception ex)
+        {
+            // Outil manquant (python, node...), fichier introuvable, etc.
+            AppendLine(_runTarget, $"[Erreur] {ex.Message}");
+            StatusText.Text = "Échec de l'exécution";
+        }
+    }
+
+    private void ViewMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { Tag: string panel }) ShowPanel(panel);
     }
 
     // ----- Membre 5 : Paramètres, raccourcis, Git/GitHub et assistant IA -----
@@ -107,7 +238,15 @@ public partial class MainWindow : Window
             () => ShowPanel("Source Control"));
         keys.Register(new CommandInfo("view.assistant", "Afficher l'assistant IA", "Ctrl+Shift+I"),
             () => ShowPanel("Assistant"));
-        keys.Register(new CommandInfo("git.refresh", "Git : actualiser", "F5"),
+        keys.Register(new CommandInfo("run.file", "Exécuter le fichier", "Ctrl+F5"),
+            async () => await RunCurrentFileAsync(debug: false));
+        keys.Register(new CommandInfo("run.debug", "Déboguer le fichier", "F5"),
+            async () => await RunCurrentFileAsync(debug: true));
+        keys.Register(new CommandInfo("run.stop", "Arrêter l'exécution", "Shift+F5"),
+            async () => await _runner.StopCurrentProcessAsync());
+        keys.Register(new CommandInfo("terminal.show", "Afficher le terminal", "Ctrl+Shift+T"),
+            ShowTerminal);
+        keys.Register(new CommandInfo("git.refresh", "Git : actualiser", "Ctrl+Shift+R"),
             async () => await SourceControlPanel.RefreshCommandAsync());
         keys.Register(new CommandInfo("git.pull", "Git : pull", "Ctrl+Alt+L"),
             async () => await SourceControlPanel.PullCommandAsync());
@@ -362,6 +501,7 @@ public partial class MainWindow : Window
             _workspacePath = dialog.FolderName;
             LoadExplorer();
             _ = SourceControlPanel.OpenFolderAsync(_workspacePath);
+            _ = _terminal.ChangeDirectoryAsync(_workspacePath);
             StatusText.Text = $"Workspace: {_workspacePath}";
         }
     }

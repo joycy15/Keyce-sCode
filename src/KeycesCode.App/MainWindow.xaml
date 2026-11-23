@@ -182,9 +182,24 @@
                 </MenuItem>
                 <MenuItem Header="_Edit"/>
                 <MenuItem Header="_Selection"/>
-                <MenuItem Header="_View"/>
-                <MenuItem Header="_Run"/>
-                <MenuItem Header="_Terminal"/>
+                <MenuItem Header="_View">
+                    <MenuItem Header="Explorateur" InputGestureText="Ctrl+Shift+E" Tag="Explorer" Click="ViewMenu_Click"/>
+                    <MenuItem Header="Recherche" InputGestureText="Ctrl+Shift+F" Tag="Search" Click="ViewMenu_Click"/>
+                    <MenuItem Header="Contrôle de code source" InputGestureText="Ctrl+Shift+G" Tag="Source Control" Click="ViewMenu_Click"/>
+                    <MenuItem Header="Assistant IA" InputGestureText="Ctrl+Shift+I" Tag="Assistant" Click="ViewMenu_Click"/>
+                    <Separator/>
+                    <MenuItem Header="Paramètres" InputGestureText="Ctrl+," Click="Settings_Click"/>
+                </MenuItem>
+                <MenuItem Header="_Run">
+                    <MenuItem Header="Exécuter le fichier" InputGestureText="Ctrl+F5" Click="RunFile_Click"/>
+                    <MenuItem Header="Déboguer le fichier" InputGestureText="F5" Click="DebugFile_Click"/>
+                    <MenuItem Header="Arrêter" InputGestureText="Shift+F5" Click="StopRun_Click"/>
+                </MenuItem>
+                <MenuItem Header="_Terminal">
+                    <MenuItem Header="Afficher le terminal" InputGestureText="Ctrl+Shift+T" Click="ShowTerminal_Click"/>
+                    <MenuItem Header="Effacer le terminal" Click="ClearTerminal_Click"/>
+                    <MenuItem Header="Redémarrer le terminal" Click="RestartTerminal_Click"/>
+                </MenuItem>
                 <MenuItem Header="_Help"/>
             </Menu>
         </Border>
@@ -495,6 +510,8 @@
                              Visibility="Collapsed"/>
                     <TextBox x:Name="OutputContent"
                              Text="No output to display."
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Auto"
                              IsReadOnly="True"
                              Background="Transparent"
                              BorderThickness="0"
@@ -504,6 +521,8 @@
                              Visibility="Collapsed"/>
                     <TextBox x:Name="DebugConsoleContent"
                              Text="Debug console is ready."
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Auto"
                              IsReadOnly="True"
                              Background="Transparent"
                              BorderThickness="0"
@@ -511,14 +530,29 @@
                              FontFamily="Consolas"
                              FontSize="12"
                              Visibility="Collapsed"/>
-                    <TextBox x:Name="TerminalContent"
-                             Text="Terminal will appear here..."
-                             IsReadOnly="True"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             Foreground="{DynamicResource SecondaryText}"
-                             FontFamily="Consolas"
-                             FontSize="12"/>
+                    <!-- Terminal (Membre 4) : sortie en haut, commande en bas -->
+                    <DockPanel x:Name="TerminalContent">
+                        <DockPanel DockPanel.Dock="Bottom" Margin="0,4,0,0">
+                            <TextBlock Text="PS &gt;" DockPanel.Dock="Left" Margin="0,0,6,0"
+                                       VerticalAlignment="Center" FontFamily="Consolas" FontSize="12"
+                                       Foreground="{DynamicResource AccentBrush}"/>
+                            <TextBox x:Name="TerminalInput"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     FontFamily="Consolas"
+                                     FontSize="12"
+                                     PreviewKeyDown="TerminalInput_PreviewKeyDown"/>
+                        </DockPanel>
+                        <TextBox x:Name="TerminalOutput"
+                                 IsReadOnly="True"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Foreground="{DynamicResource SecondaryText}"
+                                 FontFamily="Consolas"
+                                 FontSize="12"
+                                 VerticalScrollBarVisibility="Auto"
+                                 HorizontalScrollBarVisibility="Auto"/>
+                    </DockPanel>
                 </Grid>
             </DockPanel>
         </Border>
