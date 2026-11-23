@@ -14,6 +14,7 @@
     <ProjectReference Include="..\KeycesCode.Settings\KeycesCode.Settings.csproj" />
     <ProjectReference Include="..\KeycesCode.Assistant\KeycesCode.Assistant.csproj" />
     <ProjectReference Include="..\KeycesCode.Execution\KeycesCode.Execution.csproj" />
+    <ProjectReference Include="..\KeycesCode.Languages\KeycesCode.Languages.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,7 +1,7 @@
 using System.Text;
 using System.IO;
 
-namespace Keyce_sCode.Services;
+namespace KeycesCode.Languages;
 
 public sealed class FileService
 {

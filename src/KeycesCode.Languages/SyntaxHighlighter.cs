@@ -1,11 +1,11 @@
-using ICSharpCode.AvalonEdit.Highlighting;
+﻿using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Highlighting.Xshd;
 using System.IO;
 using System.Text;
 using System.Windows.Media;
 using System.Xml;
 
-namespace Keyce_sCode.Services;
+namespace KeycesCode.Languages;
 
 public interface ISyntaxHighlighter
 {
@@ -114,7 +114,8 @@ public sealed class LanguageSyntaxHighlighter : ISyntaxHighlighter
         return HighlightingLoader.Load(reader, HighlightingManager.Instance);
     }
 
-    private static void ApplyTheme(IHighlightingDefinition definition, bool isDarkTheme)
+    // Public : l'application l'utilise aussi pour les grammaires intégrées (XML, Markdown, JSON...)
+    public static void ApplyTheme(IHighlightingDefinition definition, bool isDarkTheme)
     {
         foreach (var color in definition.NamedHighlightingColors)
         {
@@ -123,11 +124,45 @@ public sealed class LanguageSyntaxHighlighter : ISyntaxHighlighter
             {
                 color.Foreground = new SimpleHighlightingBrush(foreground.Value);
             }
+            else if (color.Foreground?.GetColor(null) is Color original && !IsReadable(original, isDarkTheme))
+            {
+                // Couleur prévue pour un fond blanc (ex. noir) : invisible sur fond sombre, et inversement
+                color.Foreground = new SimpleHighlightingBrush(
+                    (Color)ColorConverter.ConvertFromString(isDarkTheme ? "#D4D4D4" : "#1F1F1F"));
+            }
         }
+    }
+
+    // Une couleur est lisible si sa luminosité contraste avec le fond de l'éditeur
+    private static bool IsReadable(Color color, bool isDarkTheme)
+    {
+        double luminance = (0.299 * color.R + 0.587 * color.G + 0.114 * color.B) / 255;
+        return isDarkTheme ? luminance > 0.35 : luminance < 0.75;
     }
 
     private static Color? GetThemeColor(string name, bool isDarkTheme)
     {
+        // Ponctuation (accolades, deux-points, points-virgules...) : couleur normale du texte
+        if (name.Contains("Brace", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("Colon", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("Punctuation", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("Operator", StringComparison.OrdinalIgnoreCase))
+        {
+            return (Color)ColorConverter.ConvertFromString(isDarkTheme ? "#D4D4D4" : "#1F1F1F");
+        }
+
+        // CSS : propriétés (margin, color...) et valeurs (0, auto, bold...), comme dans VS Code
+        if (name.Equals("Property", StringComparison.OrdinalIgnoreCase))
+        {
+            return (Color)ColorConverter.ConvertFromString(isDarkTheme ? "#9CDCFE" : "#E50000");
+        }
+
+        if (name.Equals("Value", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("Unit", StringComparison.OrdinalIgnoreCase))
+        {
+            return (Color)ColorConverter.ConvertFromString(isDarkTheme ? "#CE9178" : "#0451A5");
+        }
+
         var color = name.Contains("Comment", StringComparison.OrdinalIgnoreCase)
             ? isDarkTheme ? "#6A9955" : "#008000"
             : name.Contains("String", StringComparison.OrdinalIgnoreCase) ||

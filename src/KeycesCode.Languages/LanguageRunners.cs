@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.ComponentModel;
 using System.IO;
 
-namespace Keyce_sCode.Services;
+namespace KeycesCode.Languages;
 
 internal sealed class PythonRunner : ILanguageRunner
 {

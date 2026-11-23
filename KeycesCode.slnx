@@ -6,6 +6,7 @@
     <Project Path="src/KeycesCode.Execution/KeycesCode.Execution.csproj" />
     <Project Path="src/KeycesCode.Fakes/KeycesCode.Fakes.csproj" />
     <Project Path="src/KeycesCode.Files/KeycesCode.Files.csproj" />
+    <Project Path="src/KeycesCode.Languages/KeycesCode.Languages.csproj" />
     <Project Path="src/KeycesCode.Settings/KeycesCode.Settings.csproj" />
     <Project Path="src/KeycesCode.Settings.Sandbox/KeycesCode.Settings.Sandbox.csproj" Id="602c3ddd-45b0-4543-beca-b6e470eba2ec" />
     <Project Path="src/KeycesCode.Tests/KeycesCode.Tests.csproj" />

@@ -12,11 +12,58 @@
         WindowStartupLocation="CenterScreen"
         WindowState="Maximized"
         Background="{DynamicResource AppBackground}"
+        Foreground="{DynamicResource PrimaryText}"
+        FontFamily="Segoe UI Variable Text"
+        FontSize="13"
         BorderBrush="{DynamicResource BorderBrush}"
         BorderThickness="1"
         PreviewKeyDown="Window_PreviewKeyDown">
 
     <Window.Resources>
+        <!-- Page d'accueil : liens comme dans VS Code -->
+        <Style x:Key="WelcomeLink" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource LinkText}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Margin" Value="0,3"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent" Padding="0,3">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.75"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="WelcomeCard" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{DynamicResource SidebarBackground}"
+                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                CornerRadius="6" Padding="16,12">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBackground}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="BottomPanelTab" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource SecondaryText}"/>
@@ -176,7 +223,10 @@
         <Border Grid.Row="1" Background="{DynamicResource SidebarBackground}">
             <Menu Background="Transparent" Foreground="{DynamicResource PrimaryText}">
                 <MenuItem Header="_File">
+                    <MenuItem Header="Nouveau fichier..." Click="WelcomeNewFile_Click"/>
+                    <MenuItem Header="Ouvrir un fichier..." Click="WelcomeOpenFile_Click"/>
                     <MenuItem Header="_Open Folder..." Click="OpenFolder_Click"/>
+                    <MenuItem Header="Fermer le dossier" Click="CloseFolder_Click"/>
                     <Separator/>
                     <MenuItem Header="_Save" InputGestureText="Ctrl+S" Click="SaveDocument_Click"/>
                 </MenuItem>
@@ -383,6 +433,18 @@
                                   Background="Transparent"
                                   BorderThickness="0"
                                   Foreground="{DynamicResource PrimaryText}"/>
+
+                        <!-- Aucun dossier ouvert : comme dans VS Code -->
+                        <StackPanel x:Name="NoFolderPanel" Grid.Row="1" Grid.RowSpan="2" Visibility="Collapsed">
+                            <TextBlock Text="AUCUN DOSSIER OUVERT" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                            <TextBlock Text="Tu n'as pas encore ouvert de dossier."
+                                       TextWrapping="Wrap" Foreground="{DynamicResource SecondaryText}"/>
+                            <Button Content="Ouvrir un dossier" Margin="0,14,0,0" Padding="0,7"
+                                    HorizontalAlignment="Stretch" Cursor="Hand" Click="OpenFolder_Click"/>
+                            <TextBlock Text="Ouvrir un dossier permet de voir ses fichiers ici, de les modifier et d'utiliser Git."
+                                       TextWrapping="Wrap" Margin="0,14,0,0" LineHeight="20"
+                                       Foreground="{DynamicResource SecondaryText}"/>
+                        </StackPanel>
                     </Grid>
 
                     <Grid x:Name="SearchPanel" Visibility="Collapsed">
@@ -416,6 +478,7 @@
                         </Grid.Resources>
                         <git:GitPanel x:Name="SourceControlPanel"
                                       Visibility="Collapsed"
+                                      FolderOpened="SourceControlPanel_FolderOpened"
                                       BranchChanged="SourceControlPanel_BranchChanged"/>
                         <ai:AssistantPanel x:Name="AssistantView"
                                            Visibility="Collapsed"/>
@@ -437,25 +500,105 @@
                             SelectionChanged="EditorTabs_SelectionChanged"
                             Background="{DynamicResource EditorBackground}"
                             BorderThickness="0"/>
-                <StackPanel x:Name="WelcomePanel"
-                            VerticalAlignment="Center"
-                            HorizontalAlignment="Center"
-                            IsHitTestVisible="False">
-                    <TextBlock Text="KEYCE CODE"
-                               FontSize="38"
-                               FontWeight="Bold"
-                               Foreground="{DynamicResource WelcomeTitle}"
-                               HorizontalAlignment="Center"/>
-                    <TextBlock Text="Your code. Your environment."
-                               FontSize="14"
-                               Foreground="{DynamicResource SecondaryText}"
-                               Margin="0,10"
-                               HorizontalAlignment="Center"/>
-                    <TextBlock Text="Open a file from the Explorer to get started."
-                               FontSize="12"
-                               Foreground="{DynamicResource SecondaryText}"
-                               HorizontalAlignment="Center"/>
-                </StackPanel>
+                <!-- Page d'accueil (aucun fichier ouvert), inspirée de VS Code -->
+                <ScrollViewer x:Name="WelcomePanel" VerticalScrollBarVisibility="Auto"
+                              Background="{DynamicResource EditorBackground}">
+                    <Grid Margin="90,70,50,40" MaxWidth="1000" HorizontalAlignment="Left">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="320"/>
+                            <ColumnDefinition Width="*" MinWidth="320"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.ColumnSpan="2" Margin="0,0,0,40">
+                            <TextBlock Text="Keyce'sCode" FontSize="34" Foreground="{DynamicResource PrimaryText}"/>
+                            <TextBlock Text="Ton code. Ton environnement." FontSize="19" Margin="0,4,0,0"
+                                       Foreground="{DynamicResource SecondaryText}"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1">
+                            <TextBlock Text="Démarrer" FontSize="19" Margin="0,0,0,10"/>
+                            <Button Style="{StaticResource WelcomeLink}" Click="WelcomeNewFile_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" Margin="0,0,10,0" VerticalAlignment="Center" Foreground="{DynamicResource LinkText}"/>
+                                    <TextBlock Text="Nouveau fichier..." Foreground="{DynamicResource LinkText}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource WelcomeLink}" Click="WelcomeOpenFile_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8E5;" FontFamily="Segoe MDL2 Assets" Margin="0,0,10,0" VerticalAlignment="Center" Foreground="{DynamicResource LinkText}"/>
+                                    <TextBlock Text="Ouvrir un fichier..." Foreground="{DynamicResource LinkText}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource WelcomeLink}" Click="OpenFolder_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE838;" FontFamily="Segoe MDL2 Assets" Margin="0,0,10,0" VerticalAlignment="Center" Foreground="{DynamicResource LinkText}"/>
+                                    <TextBlock Text="Ouvrir un dossier..." Foreground="{DynamicResource LinkText}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource WelcomeLink}" Click="WelcomeClone_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="⎇" FontFamily="Segoe UI Symbol" Margin="1,0,11,0" VerticalAlignment="Center" Foreground="{DynamicResource LinkText}"/>
+                                    <TextBlock Text="Cloner un dépôt Git..." Foreground="{DynamicResource LinkText}"/>
+                                </StackPanel>
+                            </Button>
+
+                            <TextBlock Text="Récents" FontSize="19" Margin="0,30,0,10"/>
+                            <ItemsControl x:Name="RecentList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource WelcomeLink}" Tag="{Binding Path}"
+                                                Click="RecentFolder_Click" ToolTip="{Binding Path}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource LinkText}"
+                                                           Margin="0,0,14,0"/>
+                                                <TextBlock Text="{Binding Path}" Foreground="{DynamicResource SecondaryText}"
+                                                           TextTrimming="CharacterEllipsis" MaxWidth="320"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock x:Name="NoRecentText" Text="Aucun dossier récent."
+                                       Foreground="{DynamicResource SecondaryText}"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Grid.Column="1" Margin="50,0,0,0">
+                            <TextBlock Text="Découvrir" FontSize="19" Margin="0,0,0,10"/>
+                            <Button Style="{StaticResource WelcomeCard}" Tag="Assistant" Click="WelcomeCard_Click">
+                                <StackPanel>
+                                    <TextBlock Text="Assistant IA local" FontSize="14" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Pose des questions sur ton code. Tout reste sur ton PC (Ollama)."
+                                               TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource SecondaryText}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource WelcomeCard}" Tag="Source Control" Click="WelcomeCard_Click">
+                                <StackPanel>
+                                    <TextBlock Text="Git et GitHub" FontSize="14" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Commit, push, pull et clonage sans quitter l'éditeur."
+                                               TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource SecondaryText}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource WelcomeCard}" Tag="Terminal" Click="WelcomeCard_Click">
+                                <StackPanel>
+                                    <TextBlock Text="Terminal et exécution" FontSize="14" FontWeight="SemiBold"/>
+                                    <TextBlock Text="PowerShell intégré, Ctrl+F5 pour exécuter le fichier ouvert."
+                                               TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource SecondaryText}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource WelcomeCard}" Tag="Settings" Click="WelcomeCard_Click">
+                                <StackPanel>
+                                    <TextBlock Text="Personnaliser Keyce'sCode" FontSize="14" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Thème clair ou sombre, police, raccourcis, enregistrement automatique."
+                                               TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource SecondaryText}"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
 
                 <!-- Membre 5 : la page Paramètres s'ouvre par-dessus l'éditeur -->
                 <Grid x:Name="SettingsHost" Visibility="Collapsed">
@@ -562,7 +705,7 @@
             <DockPanel Margin="10,0">
                 <DockPanel.Resources>
                     <!-- Texte de la barre d'état : lisible sur le fond bleu -->
-                    <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                    <Style TargetType="TextBlock">
                         <Setter Property="Foreground" Value="{DynamicResource StatusBarText}"/>
                     </Style>
                 </DockPanel.Resources>

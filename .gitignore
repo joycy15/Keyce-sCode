@@ -490,3 +490,12 @@ $RECYCLE.BIN/
 
 # Modèles d'IA (trop lourds pour GitHub)
 *.gguf
+
+# Installateur généré par Inno Setup (Membre 5)
+installer/Output/
+
+# Installateur généré par Inno Setup (Membre 5)
+installer/Output/
+
+# Installateur généré par Inno Setup (Membre 5)
+installer/Output/

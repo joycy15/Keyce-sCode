@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Security;
 
-namespace Keyce_sCode.Services;
+namespace KeycesCode.Languages;
 
 internal sealed class DebugSession : IDisposable
 {

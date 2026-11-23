@@ -5,7 +5,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 
-namespace Keyce_sCode.Services;
+namespace KeycesCode.Languages;
 
 internal interface IDebugClient : IDisposable
 {

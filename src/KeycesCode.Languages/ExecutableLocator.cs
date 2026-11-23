@@ -1,6 +1,6 @@
 using System.IO;
 
-namespace Keyce_sCode.Services;
+namespace KeycesCode.Languages;
 
 internal static class ExecutableLocator
 {

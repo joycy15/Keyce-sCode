@@ -23,12 +23,17 @@
     <SolidColorBrush x:Key="ButtonText" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="WelcomeTitle" Color="#0078D4"/>
     <SolidColorBrush x:Key="LogoText" Color="White"/>
-    <SolidColorBrush x:Key="FolderIcon" Color="#5A5A5A"/>
+    <SolidColorBrush x:Key="FolderIcon" Color="#C09553"/>
 
     <SolidColorBrush x:Key="PrimaryText" Color="#1F1F1F"/>
     <SolidColorBrush x:Key="SecondaryText" Color="#555555"/>
     <SolidColorBrush x:Key="MutedText" Color="#7A7A7A"/>
 
+    <SolidColorBrush x:Key="LinkText" Color="#005FB8"/>
+    <SolidColorBrush x:Key="MenuPopupBackground" Color="#F3F3F3"/>
+    <SolidColorBrush x:Key="MenuHighlight" Color="#CCE4F7"/>
+    <SolidColorBrush x:Key="ScrollThumb" Color="#C1C1C1"/>
+    <SolidColorBrush x:Key="ScrollThumbHover" Color="#A8A8A8"/>
     <SolidColorBrush x:Key="AccentBrush" Color="#0078D4"/>
     <SolidColorBrush x:Key="SuccessBrush" Color="#388A34"/>
     <SolidColorBrush x:Key="ErrorBrush" Color="#D32F2F"/>

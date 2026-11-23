@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 
-namespace Keyce_sCode.Services;
+namespace KeycesCode.Languages;
 
 public sealed record ProcessOutput(string Text, bool IsError = false);
 

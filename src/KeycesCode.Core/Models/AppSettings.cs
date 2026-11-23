@@ -11,6 +11,9 @@ public sealed record AppSettings
     public bool ShowMinimap { get; init; } = true;
     public string AssistantModel { get; init; } = "qwen2.5-coder:1.5b";
 
+    // Derniers dossiers ouverts (le plus récent en premier), affichés sur la page d'accueil
+    public IReadOnlyList<string> RecentFolders { get; init; } = [];
+
     // Raccourcis modifiés par l'utilisateur : identifiant de commande → raccourci
     // (les commandes absentes gardent leur raccourci par défaut)
     public IReadOnlyDictionary<string, string> KeyBindings { get; init; } = new Dictionary<string, string>();

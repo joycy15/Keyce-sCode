@@ -10,6 +10,7 @@
     <SolidColorBrush x:Key="Brush.Primary"         Color="#0078D4"/> <!-- boutons : bleu, texte blanc -->
     <SolidColorBrush x:Key="Brush.Accent"          Color="#0078D4"/>
     <SolidColorBrush x:Key="Brush.Interactive"     Color="#0078D4"/>
+    <SolidColorBrush x:Key="Brush.Link"            Color="#005FB8"/>
     <SolidColorBrush x:Key="Brush.Hover"           Color="#DCDCDC"/>
     <SolidColorBrush x:Key="Brush.Selection"       Color="#D0DFF0"/>
     <SolidColorBrush x:Key="Brush.Input"           Color="#F5F5F5"/>

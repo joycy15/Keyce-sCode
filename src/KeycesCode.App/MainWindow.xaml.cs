@@ -10,6 +10,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
+using ICSharpCode.AvalonEdit;
+using ICSharpCode.AvalonEdit.Highlighting;
 using KeycesCode.Core.Models;
 using KeycesCode.Execution;
 using KeycesCode.Execution.Interfaces;
@@ -22,7 +24,9 @@ public partial class MainWindow : Window
 {
     private readonly Dictionary<string, EditorDocument> _documents =
         new(StringComparer.OrdinalIgnoreCase);
-    private string _workspacePath;
+    // Dossier ouvert ; vide tant qu'aucun dossier n'est ouvert (comme VS Code au démarrage)
+    private string _workspacePath = "";
+    private bool HasWorkspace => _workspacePath.Length > 0;
     private string _activePanel = "Explorer";
     private readonly DispatcherTimer _autoSaveTimer = new();
 
@@ -33,10 +37,112 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        _workspacePath = FindWorkspacePath();
-        LoadExplorer();
+        LoadExplorer();          // au démarrage : aucun dossier, l'explorateur propose d'en ouvrir un
         InitializeMember5();
         InitializeExecution();
+        RefreshRecentList();
+    }
+
+    // ----- Dossier de travail et page d'accueil -----
+
+    // Ouvre un dossier dans tout l'IDE : explorateur, Git, terminal, liste des récents
+    private async void OpenWorkspace(string path)
+    {
+        if (!Directory.Exists(path))
+        {
+            StatusText.Text = $"Dossier introuvable : {path}";
+            return;
+        }
+
+        _workspacePath = path;
+        LoadExplorer();
+        ShowPanel("Explorer");
+        _ = SourceControlPanel.OpenFolderAsync(path);
+        _ = _terminal.ChangeDirectoryAsync(path);
+        Title = $"{Path.GetFileName(path.TrimEnd('\\', '/'))} - Keyce'sCode";
+        StatusText.Text = $"Workspace: {path}";
+
+        var recent = new List<string> { path };
+        recent.AddRange(App.Settings.Current.RecentFolders
+            .Where(p => !string.Equals(p, path, StringComparison.OrdinalIgnoreCase)));
+        await App.Settings.SaveAsync(App.Settings.Current with { RecentFolders = recent.Take(10).ToList() });
+        RefreshRecentList();
+    }
+
+    private void CloseFolder_Click(object sender, RoutedEventArgs e)
+    {
+        _workspacePath = "";
+        LoadExplorer();
+        SourceControlPanel.CloseFolder();
+        Title = "Keyce'sCode";
+        StatusText.Text = "Aucun dossier ouvert";
+    }
+
+    private void SourceControlPanel_FolderOpened(object? sender, string folder) => OpenWorkspace(folder);
+
+    private void RefreshRecentList()
+    {
+        var items = App.Settings.Current.RecentFolders
+            .Where(Directory.Exists)
+            .Take(6)
+            .Select(p => new RecentFolder(
+                Path.GetFileName(p.TrimEnd('\\', '/')) is { Length: > 0 } name ? name : p, p))
+            .ToList();
+        RecentList.ItemsSource = items;
+        NoRecentText.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public sealed record RecentFolder(string Name, string Path);
+
+    private void RecentFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string path }) OpenWorkspace(path);
+    }
+
+    private void WelcomeNewFile_Click(object sender, RoutedEventArgs e)
+    {
+        if (HasWorkspace)
+        {
+            NewFile_Click(sender, e);
+            return;
+        }
+
+        // Sans dossier ouvert : on choisit où créer le fichier
+        var dialog = new SaveFileDialog { Title = "Nouveau fichier", FileName = "sans-titre.txt" };
+        if (dialog.ShowDialog(this) != true) return;
+        try
+        {
+            File.WriteAllText(dialog.FileName, string.Empty);
+            OpenDocument(dialog.FileName);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            MessageBox.Show(this, ex.Message, "Impossible de créer le fichier",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void WelcomeOpenFile_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog { Title = "Ouvrir un fichier" };
+        if (HasWorkspace) dialog.InitialDirectory = _workspacePath;
+        if (dialog.ShowDialog(this) == true) OpenDocument(dialog.FileName);
+    }
+
+    private void WelcomeClone_Click(object sender, RoutedEventArgs e)
+    {
+        ShowPanel("Source Control");
+        SourceControlPanel.ShowClone();
+    }
+
+    private void WelcomeCard_Click(object sender, RoutedEventArgs e)
+    {
+        switch ((sender as Button)?.Tag as string)
+        {
+            case "Settings": ShowSettings(); break;
+            case "Terminal": ShowTerminal(); break;
+            case string panel: ShowPanel(panel); break;
+        }
     }
 
     // ----- Membre 4 : terminal et exécution -----
@@ -63,7 +169,9 @@ public partial class MainWindow : Window
         TerminalOutput.Clear();
         try
         {
-            await _terminal.StartSessionAsync(_workspacePath);
+            await _terminal.StartSessionAsync(HasWorkspace
+                ? _workspacePath
+                : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
         }
         catch (Exception ex)
         {
@@ -173,7 +281,6 @@ public partial class MainWindow : Window
         App.Settings.SettingsChanged += (_, _) => _ = AssistantView.CheckStatusAsync();
 
         RegisterCommands();
-        _ = SourceControlPanel.OpenFolderAsync(_workspacePath);
 
         // Les paramètres agissent sur l'éditeur : police, taille, enregistrement automatique
         _autoSaveTimer.Tick += (_, _) => SaveAllDocuments();
@@ -188,7 +295,7 @@ public partial class MainWindow : Window
         var settings = App.Settings.Current;
         foreach (var document in _documents.Values)
         {
-            document.Editor.FontFamily = new FontFamily(settings.FontFamily);
+            document.Editor.FontFamily = EditorFont(settings.FontFamily);
             document.Editor.FontSize = settings.FontSize;
         }
 
@@ -218,7 +325,11 @@ public partial class MainWindow : Window
         }
 
         foreach (var document in _documents.Values)
+        {
+            ApplyEditorColors(document.Editor);
+            document.Editor.SyntaxHighlighting = null;   // force le redessin avec les nouvelles couleurs
             ApplySyntaxHighlight(document.Editor, document.Path);
+        }
     }
 
     // Les commandes de l'IDE et leur raccourci par défaut (modifiables dans les Paramètres)
@@ -309,6 +420,13 @@ public partial class MainWindow : Window
 
     private void LoadExplorer()
     {
+        // Aucun dossier : on affiche « Aucun dossier ouvert » avec le bouton Ouvrir un dossier
+        NoFolderPanel.Visibility = HasWorkspace ? Visibility.Collapsed : Visibility.Visible;
+        WorkspaceLabel.Visibility = HasWorkspace ? Visibility.Visible : Visibility.Collapsed;
+        ExplorerTree.Visibility = HasWorkspace ? Visibility.Visible : Visibility.Collapsed;
+        ExplorerTree.Items.Clear();
+        if (!HasWorkspace) return;
+
         WorkspaceLabel.Text = Path.GetFileName(_workspacePath.TrimEnd(
             Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
         if (string.IsNullOrEmpty(WorkspaceLabel.Text))
@@ -335,7 +453,7 @@ public partial class MainWindow : Window
 
         var icon = new TextBlock
         {
-            Width = 18,
+            Width = 24,
             Margin = new Thickness(0, 0, 4, 0),
             VerticalAlignment = VerticalAlignment.Center,
             TextAlignment = TextAlignment.Center,
@@ -346,7 +464,10 @@ public partial class MainWindow : Window
 
         if (isDirectory)
         {
-            icon.Text = "\u25A1";
+            // Icône de dossier (police Segoe MDL2 Assets, comme dans Windows)
+            icon.Text = "\uE8B7";
+            icon.FontFamily = new FontFamily("Segoe MDL2 Assets");
+            icon.FontSize = 13;
             icon.SetResourceReference(TextBlock.ForegroundProperty, "FolderIcon");
         }
         else
@@ -492,22 +613,24 @@ public partial class MainWindow : Window
     {
         var dialog = new OpenFolderDialog
         {
-            Title = "Open Workspace Folder",
-            InitialDirectory = _workspacePath
+            Title = "Ouvrir un dossier"
         };
+        if (HasWorkspace) dialog.InitialDirectory = _workspacePath;
 
         if (dialog.ShowDialog(this) == true)
         {
-            _workspacePath = dialog.FolderName;
-            LoadExplorer();
-            _ = SourceControlPanel.OpenFolderAsync(_workspacePath);
-            _ = _terminal.ChangeDirectoryAsync(_workspacePath);
-            StatusText.Text = $"Workspace: {_workspacePath}";
+            OpenWorkspace(dialog.FolderName);
         }
     }
 
     private void NewFile_Click(object sender, RoutedEventArgs e)
     {
+        if (!HasWorkspace)
+        {
+            WelcomeNewFile_Click(sender, e);
+            return;
+        }
+
         string? name = ShowNameDialog("New File", "File name:");
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -538,6 +661,12 @@ public partial class MainWindow : Window
 
     private void NewFolder_Click(object sender, RoutedEventArgs e)
     {
+        if (!HasWorkspace)
+        {
+            StatusText.Text = "Ouvre d'abord un dossier.";
+            return;
+        }
+
         string? name = ShowNameDialog("New Folder", "Folder name:");
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -644,6 +773,7 @@ public partial class MainWindow : Window
             ResizeMode = ResizeMode.NoResize,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Background = (Brush)FindResource("AppBackground"),
+            Foreground = (Brush)FindResource("PrimaryText"),
             BorderBrush = (Brush)FindResource("StrongBorderBrush"),
             BorderThickness = new Thickness(1),
             WindowStyle = WindowStyle.ToolWindow
@@ -736,6 +866,12 @@ public partial class MainWindow : Window
 
     private void SearchFiles()
     {
+        if (!HasWorkspace)
+        {
+            StatusText.Text = "Ouvre d'abord un dossier pour y chercher des fichiers.";
+            return;
+        }
+
         string query = SearchBox.Text.Trim();
         SearchResults.Items.Clear();
         if (query.Length == 0)
@@ -821,33 +957,20 @@ public partial class MainWindow : Window
         try
         {
             string content = File.ReadAllText(fullPath);
-            var editor = new RichTextBox
+            // Éditeur de code AvalonEdit (Membre 3) : numéros de ligne, coloration, annuler/rétablir
+            var editor = new TextEditor
             {
+                Text = content,
                 // Police et taille choisies dans les Paramètres
-                FontFamily = new FontFamily(App.Settings.Current.FontFamily),
+                FontFamily = EditorFont(App.Settings.Current.FontFamily),
                 FontSize = App.Settings.Current.FontSize,
+                ShowLineNumbers = true,
                 BorderThickness = new Thickness(0),
-                Padding = new Thickness(14),
+                Padding = new Thickness(4, 8, 4, 8),
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                IsDocumentEnabled = false
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
             };
-            var paragraph = new Paragraph
-            {
-                Margin = new Thickness(0),
-                LineHeight = 20
-            };
-            paragraph.Inlines.Add(new Run(content));
-            // SetResourceReference : la couleur suit le thème (sombre / clair)
-            editor.SetResourceReference(Control.ForegroundProperty, "PrimaryText");
-            editor.SetResourceReference(Control.BackgroundProperty, "EditorBackground");
-            editor.SetResourceReference(TextBoxBase.SelectionBrushProperty, "TextSelection");
-            editor.SetResourceReference(TextBoxBase.CaretBrushProperty, "PrimaryText");
-            editor.Document = new FlowDocument(paragraph)
-            {
-                PagePadding = new Thickness(0)
-            };
-            editor.Document.SetResourceReference(FlowDocument.ForegroundProperty, "PrimaryText");
+            ApplyEditorColors(editor);
             ApplySyntaxHighlight(editor, fullPath);
 
             var title = new TextBlock
@@ -892,13 +1015,9 @@ public partial class MainWindow : Window
             closeButton.Click += (_, _) => CloseDocument(document);
             editor.TextChanged += (_, _) =>
             {
-                if (editor.Tag is true)
-                {
-                    return;
-                }
+                if (document.IsDirty) return;
                 document.IsDirty = true;
                 UpdateDocumentTitle(document);
-                ApplySyntaxHighlight(editor, document.Path);
             };
 
             _documents.Add(fullPath, document);
@@ -972,10 +1091,7 @@ public partial class MainWindow : Window
         string path = document.Path;
         try
         {
-            var textRange = new TextRange(
-                document.Editor.Document.ContentStart,
-                document.Editor.Document.ContentEnd);
-            File.WriteAllText(path, textRange.Text);
+            File.WriteAllText(path, document.Editor.Text);
             document.IsDirty = false;
             UpdateDocumentTitle(document);
             StatusText.Text = $"Saved {path}";
@@ -1061,185 +1177,49 @@ public partial class MainWindow : Window
         return fallback;
     }
 
-    private static void ApplySyntaxHighlight(RichTextBox editor, string path)
+    // ----- Membre 3 : coloration syntaxique -----
+
+    private static readonly KeycesCode.Languages.LanguageSyntaxHighlighter Highlighter = new();
+
+    // Coloration d'Apostèl (Python, C#, JS/TS, HTML, CSS, PHP, C/C++), sinon celle intégrée à AvalonEdit
+    private static void ApplySyntaxHighlight(TextEditor editor, string path)
     {
-        if (editor.Tag is true)
-        {
-            return;
-        }
+        bool dark = App.Themes.CurrentThemeId != "light";
+        var definition = Highlighter.GetDefinition(path, dark) ?? FallbackHighlighting(path);
+        if (definition is not null)
+            KeycesCode.Languages.LanguageSyntaxHighlighter.ApplyTheme(definition, dark);
+        editor.SyntaxHighlighting = definition;
+    }
 
-        editor.Tag = true;
-        try
-        {
-        var textRange = new TextRange(
-            editor.Document.ContentStart,
-            editor.Document.ContentEnd);
-        string text = textRange.Text;
-        if (string.IsNullOrEmpty(text))
-        {
-            return;
-        }
+    // Police de l'éditeur avec des polices de secours si elle n'est pas installée sur le PC
+    private static FontFamily EditorFont(string name) =>
+        new($"{name}, Cascadia Mono, Consolas, Courier New");
 
-        textRange.ApplyPropertyValue(TextElement.ForegroundProperty,
-            (Brush)Application.Current.FindResource("PrimaryText"));
-
+    private static IHighlightingDefinition? FallbackHighlighting(string path)
+    {
         string extension = Path.GetExtension(path).ToLowerInvariant();
-        string language = extension switch
+        return extension switch
         {
-            ".cs" => "csharp",
-            ".xaml" or ".xml" or ".axml" or ".csproj" => "markup",
-            ".js" or ".ts" or ".jsx" or ".tsx" or ".java" or ".go" or ".rs" or ".rb" or ".php" or ".c" or ".cc" or ".cpp" or ".cxx" or ".h" or ".hpp" or ".sql" => "script",
-            ".json" => "json",
-            ".css" or ".scss" or ".less" => "css",
-            ".html" or ".htm" => "markup",
-            ".py" => "python",
-            ".sh" or ".bash" or ".ps1" or ".bat" or ".cmd" => "shell",
-            ".yml" or ".yaml" or ".toml" or ".ini" => "yaml",
-            ".md" or ".markdown" => "markdown",
-            _ => "text"
+            ".xaml" or ".xml" or ".axml" or ".csproj" or ".props" or ".targets" or ".slnx" or ".config" or ".resx"
+                => HighlightingManager.Instance.GetDefinition("XML"),
+            _ => HighlightingManager.Instance.GetDefinitionByExtension(extension)
         };
-
-        if (language == "text")
-        {
-            return;
-        }
-
-        var commentColor = (Brush)Application.Current.FindResource("MutedText");
-        // Couleurs de la coloration : une palette pour chaque thème
-        bool light = App.Themes.CurrentThemeId == "light";
-        var stringColor = new SolidColorBrush(light ? Color.FromRgb(163, 21, 21) : Color.FromRgb(206, 145, 120));
-        var keywordColor = new SolidColorBrush(light ? Color.FromRgb(175, 0, 219) : Color.FromRgb(197, 134, 192));
-        var typeColor = new SolidColorBrush(light ? Color.FromRgb(38, 127, 153) : Color.FromRgb(78, 201, 176));
-        var numberColor = new SolidColorBrush(light ? Color.FromRgb(9, 134, 88) : Color.FromRgb(181, 206, 168));
-        var tagColor = new SolidColorBrush(light ? Color.FromRgb(128, 0, 0) : Color.FromRgb(86, 156, 214));
-        var attributeColor = new SolidColorBrush(light ? Color.FromRgb(229, 0, 0) : Color.FromRgb(156, 220, 254));
-
-        var protectedRanges = new List<(int Start, int Length)>();
-
-        if (language == "markup")
-        {
-            ApplyRegexHighlight(editor, text, @"<!--.*?-->", commentColor);
-            ApplyRegexHighlight(editor, text, @"(?<=<[/!?]?)?[A-Za-z_][A-Za-z0-9_.:-]*(?=\s|>|/>)", tagColor);
-            ApplyRegexHighlight(editor, text, @"(?<=\s)[A-Za-z_:][A-Za-z0-9_.:-]*(?=\s*=)", attributeColor);
-            ApplyRegexHighlight(editor, text, "\"[^\"]*\"|'[^']*'", stringColor);
-            ApplyRegexHighlight(editor, text, @"&[A-Za-z]+;", numberColor);
-            return;
-        }
-
-        if (language == "markdown")
-        {
-            ApplyRegexHighlight(editor, text, @"^#{1,6}\s.*$", tagColor, RegexOptions.Multiline);
-            ApplyRegexHighlight(editor, text, @"`[^`]+`", stringColor);
-            ApplyRegexHighlight(editor, text, @"\bhttps?://\S+", attributeColor);
-            return;
-        }
-
-        string commentPattern = language switch
-        {
-            "python" or "shell" or "yaml" => @"#[^\r\n]*",
-            "css" => @"//[^\r\n]*|/\*.*?\*/",
-            "markup" => @"<!--.*?-->",
-            _ => @"//[^\r\n]*|/\*.*?\*/"
-        };
-        ApplyRegexHighlight(editor, text, commentPattern, commentColor,
-            RegexOptions.Multiline | RegexOptions.Singleline);
-        protectedRanges.AddRange(GetMatchRanges(
-            text,
-            commentPattern,
-            RegexOptions.Multiline | RegexOptions.Singleline));
-
-        string stringPattern = language switch
-        {
-            "python" => @"@?('''.*?'''|"""".*?""""|'(?:\\.|[^'])*'|""(?:\\.|[^""])*"")",
-            "json" => @"""(?:\\.|[^""])*""",
-            "css" => @"""(?:\\.|[^""])*""|'(?:\\.|[^'])*'",
-            _ => @"@?" + "\"" + "(?:\\\\.|[^\\\"])*" + "\""
-        };
-        var options = RegexOptions.Singleline;
-        if (language == "json")
-        {
-            ApplyRegexHighlight(editor, text, stringPattern, stringColor, options);
-            protectedRanges.AddRange(GetMatchRanges(text, stringPattern, options));
-        }
-        else
-        {
-            ApplyRegexHighlight(editor, text, stringPattern, stringColor, options);
-            protectedRanges.AddRange(GetMatchRanges(text, stringPattern, options));
-        }
-
-        string keywordPattern = language switch
-        {
-            "csharp" => @"\b(abstract|as|async|await|base|bool|break|byte|case|catch|char|checked|class|const|continue|decimal|default|delegate|do|double|else|enum|event|explicit|extern|false|finally|fixed|float|for|foreach|get|goto|if|implicit|in|int|interface|internal|is|lock|long|namespace|new|null|object|operator|out|override|params|private|protected|public|readonly|record|ref|required|return|sbyte|sealed|set|short|sizeof|stackalloc|static|string|struct|switch|this|throw|true|try|typeof|uint|ulong|unchecked|unsafe|ushort|using|virtual|void|volatile|where|while|yield)\b",
-            "python" => @"\b(and|as|assert|async|await|break|class|continue|def|del|elif|else|except|False|finally|for|from|global|if|import|in|is|lambda|None|not|or|pass|raise|return|True|try|while|with|yield)\b",
-            "script" => @"\b(await|break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|false|finally|for|from|function|get|if|implements|import|in|instanceof|interface|let|new|null|package|private|protected|public|return|set|static|super|switch|this|throw|true|try|typeof|undefined|var|void|while|with|yield)\b",
-            "shell" => @"\b(if|then|elif|else|fi|for|in|do|done|while|until|case|esac|function|return|exit|export|readonly|local|declare|true|false)\b",
-            "yaml" => @"\b(true|false|null|yes|no|on|off)\b",
-            "json" => @"\b(true|false|null)\b",
-            "css" => @"\b(!important|inherit|initial|unset|block|inline|flex|grid|none|relative|absolute|fixed)\b",
-            _ => @"(?!)"
-        };
-        ApplyRegexHighlight(editor, text, keywordPattern, keywordColor,
-            RegexOptions.None, protectedRanges);
-
-        string typePattern = language == "csharp"
-            ? @"\b[A-Z][A-Za-z0-9_]*\b"
-            : language == "python"
-                ? @"\b[A-Z][A-Za-z0-9_]*\b"
-                : language == "script"
-                    ? @"\b(?:auto|bool|char|double|float|int|long|short|signed|unsigned|void|string|object|struct|enum|interface|func|fn|mut|pub|crate)\b"
-                    : @"(?<![A-Za-z0-9_-])--?[A-Za-z][A-Za-z0-9_-]*";
-        ApplyRegexHighlight(editor, text, typePattern, typeColor,
-            RegexOptions.None, protectedRanges);
-
-        ApplyRegexHighlight(editor, text, @"\b(?:0[xX][0-9A-Fa-f]+|\d+(?:\.\d+)?)\b",
-            numberColor, RegexOptions.None, protectedRanges);
-        }
-        finally
-        {
-            editor.Tag = false;
-        }
     }
 
-    private static IEnumerable<(int Start, int Length)> GetMatchRanges(
-        string text,
-        string pattern,
-        RegexOptions options)
+    // Couleurs de l'éditeur liées au thème (sombre / clair)
+    private void ApplyEditorColors(TextEditor editor)
     {
-        return Regex.Matches(text, pattern, options)
-            .Cast<Match>()
-            .Select(match => (match.Index, match.Length));
-    }
-
-    private static void ApplyRegexHighlight(
-        RichTextBox editor,
-        string text,
-        string pattern,
-        Brush color,
-        RegexOptions options = RegexOptions.None,
-        IEnumerable<(int Start, int Length)>? excludedRanges = null)
-    {
-        var exclusions = excludedRanges?.ToArray() ?? Array.Empty<(int Start, int Length)>();
-        foreach (Match match in Regex.Matches(text, pattern, options))
-        {
-            if (exclusions.Any(range =>
-                    match.Index >= range.Start &&
-                    match.Index < range.Start + range.Length))
-            {
-                continue;
-            }
-
-            TextPointer start = editor.Document.ContentStart.GetPositionAtOffset(match.Index);
-            TextPointer end = editor.Document.ContentStart.GetPositionAtOffset(match.Index + match.Length);
-            if (start is not null && end is not null)
-            {
-                new TextRange(start, end).ApplyPropertyValue(TextElement.ForegroundProperty, color);
-            }
-        }
+        editor.SetResourceReference(Control.ForegroundProperty, "PrimaryText");
+        editor.SetResourceReference(Control.BackgroundProperty, "EditorBackground");
+        editor.SetResourceReference(TextEditor.LineNumbersForegroundProperty, "MutedText");
+        editor.TextArea.SetResourceReference(
+            ICSharpCode.AvalonEdit.Editing.TextArea.SelectionBrushProperty, "TextSelection");
+        editor.TextArea.Caret.CaretBrush = (Brush)FindResource("PrimaryText");
     }
 
     private sealed class EditorDocument
     {
-        public EditorDocument(string path, TabItem tab, RichTextBox editor, TextBlock title)
+        public EditorDocument(string path, TabItem tab, TextEditor editor, TextBlock title)
         {
             Path = path;
             Tab = tab;
@@ -1249,7 +1229,7 @@ public partial class MainWindow : Window
 
         public string Path { get; }
         public TabItem Tab { get; }
-        public RichTextBox Editor { get; }
+        public TextEditor Editor { get; }
         public TextBlock Title { get; }
         public bool IsDirty { get; set; }
     }
