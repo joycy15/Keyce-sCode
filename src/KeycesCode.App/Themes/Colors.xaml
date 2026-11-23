@@ -16,6 +16,7 @@
     <SolidColorBrush x:Key="BorderBrush" Color="#2B2B2B"/>
     <SolidColorBrush x:Key="StrongBorderBrush" Color="#454545"/>
     <SolidColorBrush x:Key="StatusBarBackground" Color="#0078D4"/>
+    <SolidColorBrush x:Key="StatusBarText" Color="#CCCCCC"/>
     <SolidColorBrush x:Key="InputBackground" Color="#3C3C3C"/>
     <SolidColorBrush x:Key="TextSelection" Color="#264F78"/>
     <SolidColorBrush x:Key="ButtonBackground" Color="#0E639C"/>

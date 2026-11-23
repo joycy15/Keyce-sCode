@@ -526,6 +526,12 @@
         <Border Grid.Row="4" Background="{DynamicResource StatusBarBackground}"
                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
             <DockPanel Margin="10,0">
+                <DockPanel.Resources>
+                    <!-- Texte de la barre d'état : lisible sur le fond bleu -->
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                        <Setter Property="Foreground" Value="{DynamicResource StatusBarText}"/>
+                    </Style>
+                </DockPanel.Resources>
                 <TextBlock x:Name="BranchStatus"
                            VerticalAlignment="Center" FontSize="10"
                            Margin="0,0,14,0"/>
