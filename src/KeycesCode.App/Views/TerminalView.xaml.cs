@@ -1,6 +1,6 @@
-using System.Windows.Controls;
+﻿using System.Windows.Controls;
 
-namespace Keyce_code.Views;
+namespace KeycesCode.App.Views;
 
 public partial class TerminalView : UserControl
 {
@@ -9,3 +9,4 @@ public partial class TerminalView : UserControl
         InitializeComponent();
     }
 }
+

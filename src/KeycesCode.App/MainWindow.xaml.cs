@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -9,7 +9,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Win32;
 
-namespace Keyce_code;
+namespace KeycesCode.App;
 
 public partial class MainWindow : Window
 {
@@ -131,7 +131,7 @@ public partial class MainWindow : Window
             ".sh" or ".bash" or ".ps1" or ".bat" or ".cmd" => ("$", new SolidColorBrush(Color.FromRgb(137, 209, 133))),
             ".sql" => ("DB", new SolidColorBrush(Color.FromRgb(206, 145, 120))),
             ".yml" or ".yaml" or ".toml" or ".ini" => ("Y", new SolidColorBrush(Color.FromRgb(206, 145, 120))),
-            _ => ("·", new SolidColorBrush(Color.FromRgb(153, 153, 153)))
+            _ => ("Â·", new SolidColorBrush(Color.FromRgb(153, 153, 153)))
         };
     }
 
@@ -1022,3 +1022,4 @@ public partial class MainWindow : Window
         public bool IsDirty { get; set; }
     }
 }
+

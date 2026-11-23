@@ -2,7 +2,7 @@
 using System.Data;
 using System.Windows;
 
-namespace Keyce_code;
+namespace KeycesCode.App;
 
 /// <summary>
 /// Interaction logic for App.xaml
@@ -10,4 +10,5 @@ namespace Keyce_code;
 public partial class App : Application
 {
 }
+
 

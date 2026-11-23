@@ -1,4 +1,4 @@
-<UserControl x:Class="Keyce_code.Views.EditorView"
+﻿<UserControl x:Class="KeycesCode.App.Views.ExploreView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid/>
