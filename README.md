@@ -60,3 +60,10 @@ Keyce-sCode/
 â”‚   â””â”€â”€ KeycesCode.Settings/      # ParamÃ¨tres, thÃ¨mes et intÃ©gration Git
 â”œâ”€â”€ .gitignore
 â””â”€â”€ README.md
+
+---
+
+## ?? État d'avancement — Module Exécution & Débogage (KeycesCode.Execution)
+- Contrats définis : `IToolDetectionService`, `IRunService`, `ITerminalService`
+- Services implémentés : `ToolDetectionService`, `RunService`, `TerminalService`, `ExecutionModuleFactory`
+- Documentation module : [Guide d'intégration KeycesCode.Execution](docs/execution-module.md)

@@ -1,0 +1,113 @@
+﻿<UserControl x:Class="KeycesCode.Assistant.AssistantPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{DynamicResource Brush.Panel}">
+
+    <UserControl.Resources>
+        <!-- Texte sélectionnable sans cadre (pour copier le code) -->
+        <Style x:Key="SelectableText" TargetType="TextBox">
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource Brush.Foreground}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <ScrollViewer x:Name="PART_ContentHost" Focusable="False"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Hidden"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- En-tête -->
+        <DockPanel Grid.Row="0" Margin="12,8,6,2">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Style="{DynamicResource IconButton}" FontFamily="Segoe MDL2 Assets"
+                        Content="&#xE72C;" ToolTip="Vérifier Ollama" Click="CheckStatus_Click"/>
+                <Button x:Name="NewButton" Style="{DynamicResource IconButton}" FontFamily="Segoe MDL2 Assets"
+                        Content="&#xE710;" ToolTip="Nouvelle discussion" Click="NewConversation_Click"/>
+            </StackPanel>
+            <TextBlock Text="ASSISTANT IA" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"
+                       Foreground="{DynamicResource Brush.Foreground}"/>
+        </DockPanel>
+
+        <!-- État d'Ollama -->
+        <TextBlock x:Name="StatusText" Grid.Row="1" Margin="12,0,12,6" FontSize="11"
+                   TextTrimming="CharacterEllipsis"
+                   Foreground="{DynamicResource Brush.ForegroundMuted}" Text="Connexion à Ollama…"/>
+
+        <!-- Messages -->
+        <Grid Grid.Row="2">
+            <ScrollViewer x:Name="MessagesScroll" VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="MessagesList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border x:Name="Bubble" Margin="8,4" Padding="10,8" CornerRadius="4"
+                                    Background="Transparent">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Author}" FontSize="12" FontWeight="SemiBold"
+                                               Margin="0,0,0,4"
+                                               Foreground="{DynamicResource Brush.ForegroundMuted}"/>
+                                    <TextBox Style="{StaticResource SelectableText}"
+                                             Text="{Binding Text, Mode=OneWay}"/>
+                                </StackPanel>
+                            </Border>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding IsUser}" Value="True">
+                                    <Setter TargetName="Bubble" Property="Background"
+                                            Value="{DynamicResource Brush.Input}"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <TextBlock x:Name="EmptyText" Margin="24" TextWrapping="Wrap" TextAlignment="Center"
+                       VerticalAlignment="Center" FontSize="13"
+                       Foreground="{DynamicResource Brush.ForegroundMuted}"
+                       Text="Pose une question sur ton code. L'assistant tourne en local sur ton PC avec Ollama."/>
+        </Grid>
+
+        <!-- Erreur -->
+        <TextBlock x:Name="ErrorText" Grid.Row="3" Margin="12,4" TextWrapping="Wrap" FontSize="12"
+                   Visibility="Collapsed" Foreground="{DynamicResource Brush.GitDeleted}"/>
+
+        <!-- Saisie -->
+        <Grid Grid.Row="4" Margin="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBox x:Name="InputBox" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="34" MaxHeight="150"
+                     VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Center"
+                     PreviewKeyDown="InputBox_PreviewKeyDown" TextChanged="InputBox_TextChanged"/>
+            <TextBlock x:Name="Placeholder" Margin="8,0" VerticalAlignment="Center" IsHitTestVisible="False"
+                       FontSize="12" TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource Brush.ForegroundMuted}"
+                       Text="Pose une question (Entrée : envoyer, Maj+Entrée : nouvelle ligne)"/>
+
+            <Grid Grid.Column="1" Margin="4,0,0,0" VerticalAlignment="Bottom">
+                <Button x:Name="SendButton" Style="{DynamicResource IconButton}" FontFamily="Segoe MDL2 Assets"
+                        Content="&#xE724;" ToolTip="Envoyer (Entrée)" Click="Send_Click"/>
+                <Button x:Name="StopButton" Style="{DynamicResource IconButton}" FontFamily="Segoe MDL2 Assets"
+                        Content="&#xE71A;" ToolTip="Arrêter la réponse" Click="Stop_Click"
+                        Visibility="Collapsed"/>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>
+
