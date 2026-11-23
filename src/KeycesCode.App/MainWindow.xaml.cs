@@ -4,10 +4,14 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Microsoft.Win32;
+using KeycesCode.Core.Models;
+using KeycesCode.Settings.KeyBindings;
 
 namespace KeycesCode.App;
 
@@ -16,12 +20,126 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, EditorDocument> _documents =
         new(StringComparer.OrdinalIgnoreCase);
     private string _workspacePath;
+    private string _activePanel = "Explorer";
+    private readonly DispatcherTimer _autoSaveTimer = new();
 
     public MainWindow()
     {
         InitializeComponent();
         _workspacePath = FindWorkspacePath();
         LoadExplorer();
+        InitializeMember5();
+    }
+
+    // ----- Membre 5 : Paramètres, raccourcis, Git/GitHub et assistant IA -----
+
+    private void InitializeMember5()
+    {
+        SettingsEditor.Initialize(App.Settings, App.Themes);
+        SettingsEditor.InitializeShortcuts(App.KeyBindings);
+
+        AssistantView.Initialize(App.Assistant, () => App.Settings.Current.AssistantModel);
+        App.Settings.SettingsChanged += (_, _) => _ = AssistantView.CheckStatusAsync();
+
+        RegisterCommands();
+        _ = SourceControlPanel.OpenFolderAsync(_workspacePath);
+
+        // Les paramètres agissent sur l'éditeur : police, taille, enregistrement automatique
+        _autoSaveTimer.Tick += (_, _) => SaveAllDocuments();
+        App.Settings.SettingsChanged += (_, _) => ApplyEditorSettings();
+        App.Themes.ThemeChanged += (_, _) => RefreshThemeColors();
+        ApplyEditorSettings();
+    }
+
+    // Applique police, taille et enregistrement automatique à tous les fichiers ouverts
+    private void ApplyEditorSettings()
+    {
+        var settings = App.Settings.Current;
+        foreach (var document in _documents.Values)
+        {
+            document.Editor.FontFamily = new FontFamily(settings.FontFamily);
+            document.Editor.FontSize = settings.FontSize;
+        }
+
+        _autoSaveTimer.Stop();
+        if (settings.AutoSave)
+        {
+            _autoSaveTimer.Interval = TimeSpan.FromSeconds(settings.AutoSaveDelaySeconds);
+            _autoSaveTimer.Start();
+        }
+    }
+
+    private void SaveAllDocuments()
+    {
+        foreach (var document in _documents.Values.Where(d => d.IsDirty).ToList())
+            SaveDocument(document);
+    }
+
+    // Quand on change de thème : on recolore ce qui a été créé par le code
+    private void RefreshThemeColors()
+    {
+        ShowPanel(_activePanel);
+
+        foreach (Button tab in BottomPanelTabs.Children.OfType<Button>())
+        {
+            bool active = tab.Tag?.ToString()?.StartsWith("Active:", StringComparison.Ordinal) == true;
+            tab.Foreground = (Brush)FindResource(active ? "AccentBrush" : "SecondaryText");
+        }
+
+        foreach (var document in _documents.Values)
+            ApplySyntaxHighlight(document.Editor, document.Path);
+    }
+
+    // Les commandes de l'IDE et leur raccourci par défaut (modifiables dans les Paramètres)
+    private void RegisterCommands()
+    {
+        var keys = App.KeyBindings;
+
+        keys.Register(new CommandInfo("file.save", "Enregistrer le fichier", "Ctrl+S"),
+            SaveCurrentDocument);
+        keys.Register(new CommandInfo("view.settings", "Ouvrir les paramètres", "Ctrl+,"),
+            ShowSettings);
+        keys.Register(new CommandInfo("view.explorer", "Afficher l'explorateur", "Ctrl+Shift+E"),
+            () => ShowPanel("Explorer"));
+        keys.Register(new CommandInfo("view.search", "Afficher la recherche", "Ctrl+Shift+F"),
+            () => ShowPanel("Search"));
+        keys.Register(new CommandInfo("view.git", "Afficher le contrôle de code source", "Ctrl+Shift+G"),
+            () => ShowPanel("Source Control"));
+        keys.Register(new CommandInfo("view.assistant", "Afficher l'assistant IA", "Ctrl+Shift+I"),
+            () => ShowPanel("Assistant"));
+        keys.Register(new CommandInfo("git.refresh", "Git : actualiser", "F5"),
+            async () => await SourceControlPanel.RefreshCommandAsync());
+        keys.Register(new CommandInfo("git.pull", "Git : pull", "Ctrl+Alt+L"),
+            async () => await SourceControlPanel.PullCommandAsync());
+        keys.Register(new CommandInfo("git.push", "Git : push", "Ctrl+Alt+P"),
+            async () => await SourceControlPanel.PushCommandAsync());
+    }
+
+    private void Settings_Click(object sender, RoutedEventArgs e)
+    {
+        if (SettingsHost.Visibility == Visibility.Visible) HideSettings();
+        else ShowSettings();
+    }
+
+    private void ShowSettings()
+    {
+        SettingsEditor.Reload();
+        SettingsHost.Visibility = Visibility.Visible;
+        StatusText.Text = "Paramètres";
+    }
+
+    private void HideSettings() => SettingsHost.Visibility = Visibility.Collapsed;
+
+    private void SourceControlPanel_BranchChanged(object? sender, string branch) =>
+        BranchStatus.Text = string.IsNullOrEmpty(branch) ? "" : $"⎇ {branch}";
+
+    // Affiche un panneau de la barre latérale comme si on avait cliqué sur son icône
+    private void ShowPanel(string panelName)
+    {
+        var button = ActivityBar.Children.OfType<Button>()
+            .FirstOrDefault(b => b.Tag as string == panelName);
+        if (button is not null)
+            ActivityButton_Click(button, new RoutedEventArgs());
     }
 
     private void ActivityButton_Click(object sender, RoutedEventArgs e)
@@ -34,7 +152,7 @@ public partial class MainWindow : Window
         ExplorerPanel.Visibility = panelName == "Explorer" ? Visibility.Visible : Visibility.Collapsed;
         SearchPanel.Visibility = panelName == "Search" ? Visibility.Visible : Visibility.Collapsed;
         SourceControlPanel.Visibility = panelName == "Source Control" ? Visibility.Visible : Visibility.Collapsed;
-        ExtensionsPanel.Visibility = panelName == "Extensions" ? Visibility.Visible : Visibility.Collapsed;
+        AssistantView.Visibility = panelName == "Assistant" ? Visibility.Visible : Visibility.Collapsed;
 
         foreach (Button activityButton in ActivityBar.Children.OfType<Button>())
         {
@@ -42,10 +160,11 @@ public partial class MainWindow : Window
         }
 
         button.Foreground = (Brush)FindResource("AccentBrush");
+        _activePanel = panelName;
 
         if (panelName == "Source Control")
         {
-            _ = RefreshSourceControlAsync();
+            _ = SourceControlPanel.RefreshCommandAsync();
         }
     }
 
@@ -82,14 +201,14 @@ public partial class MainWindow : Window
             VerticalAlignment = VerticalAlignment.Center,
             TextAlignment = TextAlignment.Center,
             FontFamily = new FontFamily("Segoe UI Symbol"),
-            FontSize = 11,
-            Foreground = (Brush)Application.Current.FindResource("SecondaryText")
+            FontSize = 11
         };
+        icon.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
 
         if (isDirectory)
         {
             icon.Text = "\u25A1";
-            icon.Foreground = new SolidColorBrush(Color.FromRgb(192, 192, 192));
+            icon.SetResourceReference(TextBlock.ForegroundProperty, "FolderIcon");
         }
         else
         {
@@ -98,13 +217,14 @@ public partial class MainWindow : Window
 
         DockPanel.SetDock(icon, Dock.Left);
         header.Children.Add(icon);
-        header.Children.Add(new TextBlock
+        var label = new TextBlock
         {
             Text = name,
             VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            Foreground = (Brush)Application.Current.FindResource("PrimaryText")
-        });
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        label.SetResourceReference(TextBlock.ForegroundProperty, "PrimaryText");
+        header.Children.Add(label);
         return header;
     }
 
@@ -131,7 +251,7 @@ public partial class MainWindow : Window
             ".sh" or ".bash" or ".ps1" or ".bat" or ".cmd" => ("$", new SolidColorBrush(Color.FromRgb(137, 209, 133))),
             ".sql" => ("DB", new SolidColorBrush(Color.FromRgb(206, 145, 120))),
             ".yml" or ".yaml" or ".toml" or ".ini" => ("Y", new SolidColorBrush(Color.FromRgb(206, 145, 120))),
-            _ => ("Â·", new SolidColorBrush(Color.FromRgb(153, 153, 153)))
+            _ => ("·", new SolidColorBrush(Color.FromRgb(153, 153, 153)))
         };
     }
 
@@ -241,6 +361,7 @@ public partial class MainWindow : Window
         {
             _workspacePath = dialog.FolderName;
             LoadExplorer();
+            _ = SourceControlPanel.OpenFolderAsync(_workspacePath);
             StatusText.Text = $"Workspace: {_workspacePath}";
         }
     }
@@ -549,6 +670,7 @@ public partial class MainWindow : Window
 
     private void OpenDocument(string path)
     {
+        HideSettings();
         string fullPath = Path.GetFullPath(path);
         if (_documents.TryGetValue(fullPath, out EditorDocument? existingDocument))
         {
@@ -561,10 +683,9 @@ public partial class MainWindow : Window
             string content = File.ReadAllText(fullPath);
             var editor = new RichTextBox
             {
-                FontFamily = new FontFamily("Consolas"),
-                FontSize = 13,
-                Foreground = (Brush)FindResource("PrimaryText"),
-                Background = (Brush)FindResource("EditorBackground"),
+                // Police et taille choisies dans les Paramètres
+                FontFamily = new FontFamily(App.Settings.Current.FontFamily),
+                FontSize = App.Settings.Current.FontSize,
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(14),
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
@@ -577,11 +698,16 @@ public partial class MainWindow : Window
                 LineHeight = 20
             };
             paragraph.Inlines.Add(new Run(content));
+            // SetResourceReference : la couleur suit le thème (sombre / clair)
+            editor.SetResourceReference(Control.ForegroundProperty, "PrimaryText");
+            editor.SetResourceReference(Control.BackgroundProperty, "EditorBackground");
+            editor.SetResourceReference(TextBoxBase.SelectionBrushProperty, "TextSelection");
+            editor.SetResourceReference(TextBoxBase.CaretBrushProperty, "PrimaryText");
             editor.Document = new FlowDocument(paragraph)
             {
-                PagePadding = new Thickness(0),
-                Foreground = (Brush)FindResource("PrimaryText")
+                PagePadding = new Thickness(0)
             };
+            editor.Document.SetResourceReference(FlowDocument.ForegroundProperty, "PrimaryText");
             ApplySyntaxHighlight(editor, fullPath);
 
             var title = new TextBlock
@@ -600,13 +726,13 @@ public partial class MainWindow : Window
                 Padding = new Thickness(0),
                 Margin = new Thickness(0, 0, 4, 0),
                 Background = Brushes.Transparent,
-                Foreground = (Brush)FindResource("SecondaryText"),
                 BorderThickness = new Thickness(0),
                 FontSize = 15,
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 VerticalContentAlignment = VerticalAlignment.Center,
                 ToolTip = "Close"
             };
+            closeButton.SetResourceReference(Control.ForegroundProperty, "SecondaryText");
             var header = new DockPanel
             {
                 LastChildFill = true,
@@ -679,9 +805,12 @@ public partial class MainWindow : Window
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.S)
+        // Pendant que la page Paramètres attend un nouveau raccourci, on ne fait rien
+        if (SettingsEditor.IsCapturingShortcut) return;
+
+        var shortcut = KeyReader.Read(e);
+        if (shortcut is not null && App.KeyBindings.TryExecute(shortcut))
         {
-            SaveCurrentDocument();
             e.Handled = true;
         }
     }
@@ -695,6 +824,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        SaveDocument(document);
+    }
+
+    private void SaveDocument(EditorDocument document)
+    {
+        string path = document.Path;
         try
         {
             var textRange = new TextRange(
@@ -759,51 +894,6 @@ public partial class MainWindow : Window
         selectedTab.Tag = $"Active:{selectedTab.Tag}";
         selectedTab.Foreground = (Brush)FindResource("AccentBrush");
         StatusText.Text = $"{selectedTab.Tag.ToString()?.Split(':')[1]} panel selected";
-    }
-
-    private async void RefreshSourceControl_Click(object sender, RoutedEventArgs e)
-    {
-        await RefreshSourceControlAsync();
-    }
-
-    private async Task RefreshSourceControlAsync()
-    {
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = "git",
-            WorkingDirectory = _workspacePath,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true
-        };
-        startInfo.ArgumentList.Add("status");
-        startInfo.ArgumentList.Add("--short");
-        startInfo.ArgumentList.Add("--branch");
-
-        try
-        {
-            using var process = new Process { StartInfo = startInfo };
-            if (!process.Start())
-            {
-                SourceControlOutput.Text = "Git could not be started.";
-                return;
-            }
-
-            Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
-            Task<string> errorTask = process.StandardError.ReadToEndAsync();
-            await process.WaitForExitAsync();
-            string output = await outputTask;
-            string error = await errorTask;
-
-            SourceControlOutput.Text = process.ExitCode == 0
-                ? string.IsNullOrWhiteSpace(output) ? "No changes." : output
-                : string.IsNullOrWhiteSpace(error) ? "Git status failed." : error;
-        }
-        catch (Win32Exception ex)
-        {
-            SourceControlOutput.Text = $"Unable to run Git: {ex.Message}";
-        }
     }
 
     private static string FindWorkspacePath()
@@ -875,12 +965,14 @@ public partial class MainWindow : Window
         }
 
         var commentColor = (Brush)Application.Current.FindResource("MutedText");
-        var stringColor = new SolidColorBrush(Color.FromRgb(206, 145, 120));
-        var keywordColor = new SolidColorBrush(Color.FromRgb(197, 134, 192));
-        var typeColor = new SolidColorBrush(Color.FromRgb(78, 201, 176));
-        var numberColor = new SolidColorBrush(Color.FromRgb(181, 206, 168));
-        var tagColor = new SolidColorBrush(Color.FromRgb(86, 156, 214));
-        var attributeColor = new SolidColorBrush(Color.FromRgb(156, 220, 254));
+        // Couleurs de la coloration : une palette pour chaque thème
+        bool light = App.Themes.CurrentThemeId == "light";
+        var stringColor = new SolidColorBrush(light ? Color.FromRgb(163, 21, 21) : Color.FromRgb(206, 145, 120));
+        var keywordColor = new SolidColorBrush(light ? Color.FromRgb(175, 0, 219) : Color.FromRgb(197, 134, 192));
+        var typeColor = new SolidColorBrush(light ? Color.FromRgb(38, 127, 153) : Color.FromRgb(78, 201, 176));
+        var numberColor = new SolidColorBrush(light ? Color.FromRgb(9, 134, 88) : Color.FromRgb(181, 206, 168));
+        var tagColor = new SolidColorBrush(light ? Color.FromRgb(128, 0, 0) : Color.FromRgb(86, 156, 214));
+        var attributeColor = new SolidColorBrush(light ? Color.FromRgb(229, 0, 0) : Color.FromRgb(156, 220, 254));
 
         var protectedRanges = new List<(int Start, int Length)>();
 
@@ -1022,4 +1114,3 @@ public partial class MainWindow : Window
         public bool IsDirty { get; set; }
     }
 }
-

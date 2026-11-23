@@ -3,7 +3,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Style TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
         <Setter Property="FontFamily" Value="Segoe UI Variable Text"/>
         <Setter Property="FontSize" Value="13"/>
     </Style>
@@ -11,33 +11,33 @@
     <Style x:Key="PanelTitle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="11"/>
         <Setter Property="FontWeight" Value="Normal"/>
-        <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
     </Style>
 
     <Style TargetType="Menu">
-        <Setter Property="Background" Value="{StaticResource MenuBackground}"/>
-        <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
+        <Setter Property="Background" Value="{DynamicResource MenuBackground}"/>
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
         <Setter Property="FontFamily" Value="Segoe UI Variable Text"/>
         <Setter Property="FontSize" Value="13"/>
     </Style>
 
     <Style TargetType="MenuItem">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
         <Setter Property="Padding" Value="9,5"/>
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
 
     <Style TargetType="TreeView">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="FontFamily" Value="Segoe UI Variable Text"/>
         <Setter Property="FontSize" Value="13"/>
     </Style>
 
     <Style TargetType="TreeViewItem">
-        <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
         <Setter Property="Padding" Value="1,1"/>
         <Setter Property="Margin" Value="0"/>
         <Setter Property="Background" Value="Transparent"/>
@@ -70,16 +70,16 @@
                                         <ControlTemplate TargetType="ToggleButton">
                                             <Border Background="Transparent">
                                                 <TextBlock x:Name="Chevron"
-                                                           Text="â€º"
+                                                           Text="›"
                                                            FontSize="16"
                                                            FontFamily="Segoe UI Symbol"
-                                                           Foreground="{StaticResource SecondaryText}"
+                                                           Foreground="{DynamicResource SecondaryText}"
                                                            HorizontalAlignment="Center"
                                                            VerticalAlignment="Center"/>
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsChecked" Value="True">
-                                                    <Setter TargetName="Chevron" Property="Text" Value="âŒ„"/>
+                                                    <Setter TargetName="Chevron" Property="Text" Value="⌄"/>
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
@@ -97,17 +97,17 @@
                     </StackPanel>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource SelectedBackground}"/>
+                            <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SelectedBackground}"/>
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource HoverBackground}"/>
+                            <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource HoverBackground}"/>
                         </Trigger>
                         <MultiTrigger>
                             <MultiTrigger.Conditions>
                                 <Condition Property="IsSelected" Value="True"/>
                                 <Condition Property="IsMouseOver" Value="True"/>
                             </MultiTrigger.Conditions>
-                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource SelectedBackground}"/>
+                            <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SelectedBackground}"/>
                         </MultiTrigger>
                         <Trigger Property="HasItems" Value="False">
                             <Setter TargetName="Expander" Property="Visibility" Value="Collapsed"/>
@@ -126,19 +126,19 @@
     </Style>
 
     <Style TargetType="TextBox">
-        <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
-        <Setter Property="CaretBrush" Value="{StaticResource PrimaryText}"/>
-        <Setter Property="Background" Value="#3C3C3C"/>
-        <Setter Property="BorderBrush" Value="{StaticResource StrongBorderBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource PrimaryText}"/>
+        <Setter Property="Background" Value="{DynamicResource InputBackground}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource StrongBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="SelectionBrush" Value="#264F78"/>
+        <Setter Property="SelectionBrush" Value="{DynamicResource TextSelection}"/>
         <Setter Property="Padding" Value="4,3"/>
     </Style>
 
     <Style TargetType="Button">
-        <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
-        <Setter Property="Background" Value="#0E639C"/>
-        <Setter Property="BorderBrush" Value="#0E639C"/>
+        <Setter Property="Foreground" Value="{DynamicResource ButtonText}"/>
+        <Setter Property="Background" Value="{DynamicResource ButtonBackground}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource ButtonBackground}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="8,4"/>
         <Setter Property="FontFamily" Value="Segoe UI Variable Text"/>
@@ -159,28 +159,28 @@
 
     <Style TargetType="ListBox">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
 
     <Style TargetType="ListBoxItem">
-        <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
         <Setter Property="Padding" Value="6,4"/>
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
 
     <Style TargetType="TabControl">
-        <Setter Property="Background" Value="{StaticResource EditorBackground}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource EditorBackground}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Padding" Value="0"/>
         <Setter Property="TabStripPlacement" Value="Top"/>
     </Style>
 
     <Style TargetType="TabItem">
-        <Setter Property="Foreground" Value="{StaticResource SecondaryText}"/>
-        <Setter Property="Background" Value="{StaticResource TabBackground}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource SecondaryText}"/>
+        <Setter Property="Background" Value="{DynamicResource TabBackground}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
         <Setter Property="BorderThickness" Value="0,0,1,0"/>
         <Setter Property="MinWidth" Value="150"/>
         <Setter Property="MaxWidth" Value="220"/>
@@ -205,12 +205,12 @@
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="TabBorder" Property="Background" Value="{StaticResource HoverBackground}"/>
+                            <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource HoverBackground}"/>
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="TabBorder" Property="Background" Value="{StaticResource EditorBackground}"/>
-                            <Setter TargetName="ActiveLine" Property="Background" Value="{StaticResource AccentBrush}"/>
-                            <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
+                            <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource EditorBackground}"/>
+                            <Setter TargetName="ActiveLine" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

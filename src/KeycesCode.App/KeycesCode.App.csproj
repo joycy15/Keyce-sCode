@@ -9,6 +9,10 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\KeycesCode.Core\KeycesCode.Core.csproj" />
+    <ProjectReference Include="..\KeycesCode.Settings\KeycesCode.Settings.csproj" />
+    <ProjectReference Include="..\KeycesCode.Assistant\KeycesCode.Assistant.csproj" />
+  </ItemGroup>
+
 </Project>
-
-

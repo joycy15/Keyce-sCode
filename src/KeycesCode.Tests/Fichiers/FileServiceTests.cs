@@ -8,7 +8,7 @@ namespace KeycesCode.Tests.Fichiers
         [Fact]
         public async Task WriteAndReadFile_ShouldWorkProperly()
         {
-            // 1. Arrange (PrÃ©paration)
+            // 1. Arrange (Préparation)
             var fakeFileService = new FakeFileService();
             string testPath = "C:/faux/chemin/test.cs";
             string expectedContent = "Console.WriteLine('Hello Keyce Code');";
@@ -17,7 +17,7 @@ namespace KeycesCode.Tests.Fichiers
             await fakeFileService.WriteFileAsync(testPath, expectedContent);
             var actualContent = await fakeFileService.ReadFileAsync(testPath);
 
-            // 3. Assert (VÃ©rification)
+            // 3. Assert (Vérification)
             Assert.Equal(expectedContent, actualContent);
             Assert.True(fakeFileService.FileExists(testPath));
         }
@@ -38,4 +38,3 @@ namespace KeycesCode.Tests.Fichiers
         }
     }
 }
-
