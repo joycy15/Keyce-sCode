@@ -487,3 +487,6 @@ $RECYCLE.BIN/
 *.swp
 
 .vscode/
+
+# Modèles d'IA (trop lourds pour GitHub)
+*.gguf
