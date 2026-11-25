@@ -38,6 +38,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         LoadExplorer();          // au démarrage : aucun dossier, l'explorateur propose d'en ouvrir un
+        InitializeExplorerMenu(); // clic droit : renommer, supprimer... (MainWindow.FileActions.cs)
         InitializeMember5();
         InitializeExecution();
         RefreshRecentList();
@@ -1104,7 +1105,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private string? ShowNameDialog(string title, string prompt)
+    private string? ShowNameDialog(string title, string prompt, string initialText = "", string confirmText = "Create")
     {
         var dialog = new Window
         {
@@ -1155,7 +1156,7 @@ public partial class MainWindow : Window
         };
         var create = new Button
         {
-            Content = "Create",
+            Content = confirmText,
             Width = 82,
             IsDefault = true
         };
@@ -1183,10 +1184,14 @@ public partial class MainWindow : Window
             }
         };
 
+        input.Text = initialText;
         dialog.Loaded += (_, _) =>
         {
             input.Focus();
-            input.SelectAll();
+            // Pour renommer « index.html », on sélectionne « index » (comme dans VS Code)
+            int dot = initialText.LastIndexOf('.');
+            if (dot > 0) input.Select(0, dot);
+            else input.SelectAll();
         };
 
         return dialog.ShowDialog() == true ? input.Text : null;
