@@ -1314,6 +1314,8 @@ public partial class MainWindow : Window
             };
             ApplyEditorColors(editor);
             ApplySyntaxHighlight(editor, fullPath);
+            // Suggestions, extraits (Tab), fermeture automatique des parenthèses et des balises
+            KeycesCode.Languages.CodeAssist.Attach(editor, fullPath);
 
             var title = new TextBlock
             {
