@@ -29,6 +29,7 @@ public sealed class LanguageSyntaxHighlighter : ISyntaxHighlighter
         [".htm"] = "HTML",
         [".css"] = "CSS",
         [".php"] = "PHP",
+        [".java"] = "Java",
         [".c"] = "C++",
         [".cpp"] = "C++",
         [".cc"] = "C++",
@@ -51,9 +52,13 @@ public sealed class LanguageSyntaxHighlighter : ISyntaxHighlighter
         var key = (language, isDarkTheme);
         if (!_definitions.TryGetValue(key, out var definition))
         {
-            definition = language == "HTML"
-                ? LoadHtmlDefinition(isDarkTheme)
-                : HighlightingManager.Instance.GetDefinition(language);
+            definition = language switch
+            {
+                "HTML" => LoadHtmlDefinition(isDarkTheme),
+                // C# et Java : on ajoute une règle qui colore les noms de types (Console, Random, String...)
+                "C#" => LoadWithTypeNames("CSharp-Mode.xshd") ?? HighlightingManager.Instance.GetDefinition(language),
+                _ => HighlightingManager.Instance.GetDefinition(language)
+            };
             _definitions.Add(key, definition);
         }
 
@@ -114,6 +119,40 @@ public sealed class LanguageSyntaxHighlighter : ISyntaxHighlighter
         return HighlightingLoader.Load(reader, HighlightingManager.Instance);
     }
 
+    // Charge une grammaire intégrée d'AvalonEdit et ajoute la couleur « TypeName » :
+    // tout mot qui commence par une majuscule (Console, Random, List...) est colorié comme un type.
+    private static IHighlightingDefinition? LoadWithTypeNames(string resourceFile)
+    {
+        string resourceName = "ICSharpCode.AvalonEdit.Highlighting.Resources." + resourceFile;
+        using var resource = typeof(HighlightingManager).Assembly.GetManifestResourceStream(resourceName);
+        if (resource is null) return null;
+
+        var syntax = new XmlDocument();
+        syntax.Load(resource);
+        var root = syntax.DocumentElement;
+        if (root is null) return null;
+
+        var namespaceUri = root.NamespaceURI;
+        var namespaces = new XmlNamespaceManager(syntax.NameTable);
+        namespaces.AddNamespace("x", namespaceUri);
+        var mainRules = root.SelectSingleNode("x:RuleSet[not(@name)]", namespaces);
+        if (mainRules is null) return null;
+
+        var color = syntax.CreateElement("Color", namespaceUri);
+        color.SetAttribute("name", "TypeName");
+        color.SetAttribute("foreground", "#4EC9B0");
+        root.InsertBefore(color, mainRules);
+
+        // Ajoutée à la fin : les mots-clés et les appels de méthode restent prioritaires
+        var rule = syntax.CreateElement("Rule", namespaceUri);
+        rule.SetAttribute("color", "TypeName");
+        rule.InnerText = @"\b[A-Z][A-Za-z0-9_]*\b";
+        mainRules.AppendChild(rule);
+
+        using var reader = XmlReader.Create(new StringReader(syntax.OuterXml));
+        return HighlightingLoader.Load(reader, HighlightingManager.Instance);
+    }
+
     // Public : l'application l'utilise aussi pour les grammaires intégrées (XML, Markdown, JSON...)
     public static void ApplyTheme(IHighlightingDefinition definition, bool isDarkTheme)
     {
@@ -140,57 +179,32 @@ public sealed class LanguageSyntaxHighlighter : ISyntaxHighlighter
         return isDarkTheme ? luminance > 0.35 : luminance < 0.75;
     }
 
+    // Palette inspirée de VS Code (Dark+ et Light+). L'ordre compte : la première règle qui correspond gagne.
+    private static readonly (string[] Words, string Dark, string Light)[] Palette =
+    [
+        (["Comment"], "#6A9955", "#008000"),
+        (["AttributeValue", "String", "Char", "Regex", "Quote"], "#CE9178", "#A31515"),
+        (["Number", "Digit"], "#B5CEA8", "#098658"),
+        (["Goto", "Exception", "Control", "Flow", "Preprocessor"], "#C586C0", "#AF00DB"),
+        (["TypeName", "Builtin"], "#4EC9B0", "#267F99"),
+        (["Keyword", "Modifier", "Visibility", "Literal", "Intrinsic", "TrueFalse", "Null",
+          "This", "GetSet", "Checked", "Unsafe"], "#569CD6", "#0000FF"),
+        (["Method", "Function"], "#DCDCAA", "#795E26"),
+        (["Attribute"], "#9CDCFE", "#E50000"),
+        (["Tag", "Entity", "DocType", "Declaration"], "#569CD6", "#800000"),
+        (["Property"], "#9CDCFE", "#E50000"),
+        (["Value", "Unit"], "#CE9178", "#0451A5"),
+        (["Selector", "Class", "ID", "Pseudo"], "#D7BA7D", "#800000"),
+        (["Brace", "Colon", "Punctuation", "Operator", "Slash", "Assignment"], "#D4D4D4", "#1F1F1F"),
+    ];
+
     private static Color? GetThemeColor(string name, bool isDarkTheme)
     {
-        // Ponctuation (accolades, deux-points, points-virgules...) : couleur normale du texte
-        if (name.Contains("Brace", StringComparison.OrdinalIgnoreCase) ||
-            name.Contains("Colon", StringComparison.OrdinalIgnoreCase) ||
-            name.Contains("Punctuation", StringComparison.OrdinalIgnoreCase) ||
-            name.Contains("Operator", StringComparison.OrdinalIgnoreCase))
+        foreach (var (words, dark, light) in Palette)
         {
-            return (Color)ColorConverter.ConvertFromString(isDarkTheme ? "#D4D4D4" : "#1F1F1F");
+            if (words.Any(word => name.Contains(word, StringComparison.OrdinalIgnoreCase)))
+                return (Color)ColorConverter.ConvertFromString(isDarkTheme ? dark : light);
         }
-
-        // CSS : propriétés (margin, color...) et valeurs (0, auto, bold...), comme dans VS Code
-        if (name.Equals("Property", StringComparison.OrdinalIgnoreCase))
-        {
-            return (Color)ColorConverter.ConvertFromString(isDarkTheme ? "#9CDCFE" : "#E50000");
-        }
-
-        if (name.Equals("Value", StringComparison.OrdinalIgnoreCase) ||
-            name.Contains("Unit", StringComparison.OrdinalIgnoreCase))
-        {
-            return (Color)ColorConverter.ConvertFromString(isDarkTheme ? "#CE9178" : "#0451A5");
-        }
-
-        var color = name.Contains("Comment", StringComparison.OrdinalIgnoreCase)
-            ? isDarkTheme ? "#6A9955" : "#008000"
-            : name.Contains("String", StringComparison.OrdinalIgnoreCase) ||
-              name.Contains("Character", StringComparison.OrdinalIgnoreCase) ||
-              name.Contains("Char", StringComparison.OrdinalIgnoreCase) ||
-              name.Contains("Regex", StringComparison.OrdinalIgnoreCase)
-                ? isDarkTheme ? "#CE9178" : "#A31515"
-                : name.Contains("Number", StringComparison.OrdinalIgnoreCase) ||
-                  name.Contains("Digit", StringComparison.OrdinalIgnoreCase)
-                    ? isDarkTheme ? "#B5CEA8" : "#098658"
-                    : name.Contains("Keyword", StringComparison.OrdinalIgnoreCase) ||
-                      name.Contains("Literal", StringComparison.OrdinalIgnoreCase) ||
-                      name.Contains("Intrinsic", StringComparison.OrdinalIgnoreCase) ||
-                      name.Contains("GlobalFunction", StringComparison.OrdinalIgnoreCase)
-                        ? isDarkTheme ? "#569CD6" : "#0000FF"
-                        : name.Contains("Method", StringComparison.OrdinalIgnoreCase)
-                            ? isDarkTheme ? "#DCDCAA" : "#795E26"
-                            : name.Contains("Tag", StringComparison.OrdinalIgnoreCase) ||
-                              name.Contains("Attribute", StringComparison.OrdinalIgnoreCase) ||
-                              name.Contains("Entity", StringComparison.OrdinalIgnoreCase)
-                                ? isDarkTheme ? "#4EC9B0" : "#800000"
-                                : name.Contains("Class", StringComparison.OrdinalIgnoreCase) ||
-                                  name.Contains("Selector", StringComparison.OrdinalIgnoreCase)
-                                    ? isDarkTheme ? "#D7BA7D" : "#800080"
-                                    : null;
-
-        return color is null
-            ? null
-            : (Color)ColorConverter.ConvertFromString(color);
+        return null;
     }
 }
