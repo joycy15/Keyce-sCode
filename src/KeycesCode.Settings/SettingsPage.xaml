@@ -217,13 +217,35 @@
                     <!-- ===== Assistant IA ===== -->
                     <StackPanel x:Name="AssistantSection">
                         <TextBlock Text="Assistant IA" Style="{StaticResource SectionTitle}"/>
-                        <Border Style="{StaticResource SettingItem}" Tag="assistant ia modèle ollama">
+                        <Border Style="{StaticResource SettingItem}" Tag="assistant ia gemini google clé api key">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource SettingTitle}">
+                                    <Run Text="Assistant IA : "/><Run Text="Clé API Gemini" FontWeight="SemiBold"/>
+                                </TextBlock>
+                                <TextBlock Style="{StaticResource SettingDescription}" TextWrapping="Wrap">
+                                    <Run Text="L'assistant utilise Google Gemini (Internet nécessaire). Crée une clé gratuite sur"/>
+                                    <Hyperlink NavigateUri="https://aistudio.google.com/apikey" RequestNavigate="Link_RequestNavigate"
+                                               Foreground="{DynamicResource Brush.Link}">aistudio.google.com/apikey</Hyperlink><Run Text=", puis colle-la ici. Elle reste sur ton PC."/>
+                                </TextBlock>
+                                <StackPanel Orientation="Horizontal">
+                                    <PasswordBox x:Name="GeminiKeyInput" Width="300" Padding="6,4"
+                                                 Background="{DynamicResource Brush.Input}"
+                                                 Foreground="{DynamicResource Brush.Foreground}"
+                                                 BorderBrush="{DynamicResource Brush.Border}"
+                                                 CaretBrush="{DynamicResource Brush.Foreground}"
+                                                 LostFocus="GeminiKey_LostFocus" PreviewKeyDown="Field_PreviewKeyDown"/>
+                                    <TextBlock x:Name="GeminiKeyState" Margin="10,0,0,0" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Brush.ForegroundMuted}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource SettingItem}" Tag="assistant ia modèle gemini flash pro">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource SettingTitle}">
                                     <Run Text="Assistant IA : "/><Run Text="Modèle" FontWeight="SemiBold"/>
                                 </TextBlock>
-                                <TextBlock Style="{StaticResource SettingDescription}"
-                                           Text="Nom du modèle Ollama utilisé par l'assistant (par exemple qwen2.5-coder:1.5b)."/>
+                                <TextBlock Style="{StaticResource SettingDescription}" TextWrapping="Wrap"
+                                           Text="Nom du modèle Gemini. Par défaut gemini-flash-latest (toujours le dernier modèle Flash, rapide et gratuit)."/>
                                 <TextBox x:Name="AssistantModelInput" Width="300" HorizontalAlignment="Left"
                                          LostFocus="AssistantModel_LostFocus" PreviewKeyDown="Field_PreviewKeyDown"/>
                             </StackPanel>

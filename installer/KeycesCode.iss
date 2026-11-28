@@ -28,6 +28,8 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 ; Permet d'installer pour soi seul (sans droits administrateur) ou pour tous
 PrivilegesRequiredOverridesAllowed=dialog
+; Logo de Keyce'sCode sur l'installateur et dans « Ajouter ou supprimer des programmes »
+SetupIconFile=keycescode.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 UninstallDisplayName={#MyAppName}
 

@@ -12,7 +12,7 @@ public partial class App : Application
     public static SettingsService Settings { get; } = new();
     public static ThemeService Themes { get; } = new();
     public static KeyBindingService KeyBindings { get; } = new(Settings);
-    public static OllamaAssistantService Assistant { get; } = new();
+    public static GeminiAssistantService Assistant { get; } = new(() => Settings.Current.GeminiApiKey);
 
     protected override async void OnStartup(StartupEventArgs e)
     {

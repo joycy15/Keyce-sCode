@@ -29,6 +29,11 @@ namespace KeycesCode.Execution.Services
 
         public string CurrentWorkingDirectory { get; private set; } = Environment.CurrentDirectory;
 
+        // « powershell » (par défaut) ou « cmd » (Invite de commandes)
+        public string Shell { get; set; } = "powershell";
+
+        private bool IsCmd => string.Equals(Shell, "cmd", StringComparison.OrdinalIgnoreCase);
+
         public event EventHandler<TerminalOutputEventArgs>? OutputReceived;
 
         public Task StartSessionAsync(string workingDirectory, CancellationToken cancellationToken = default)
@@ -45,8 +50,9 @@ namespace KeycesCode.Execution.Services
             CurrentWorkingDirectory = targetDir;
 
             bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-            string shellExe = isWindows ? "powershell.exe" : "/bin/bash";
-            string shellArgs = isWindows ? "-NoLogo -NoProfile -ExecutionPolicy Bypass" : "-i";
+            // cmd : /Q = les commandes ne sont pas répétées (Keyce'sCode les affiche lui-même), /K = reste ouvert
+            string shellExe = !isWindows ? "/bin/bash" : IsCmd ? "cmd.exe" : "powershell.exe";
+            string shellArgs = !isWindows ? "-i" : IsCmd ? "/Q /K" : "-NoLogo -NoProfile -ExecutionPolicy Bypass";
 
             var process = new Process
             {
@@ -99,7 +105,8 @@ namespace KeycesCode.Execution.Services
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
-            EmitOutput($"[Terminal] Session démarrée dans {CurrentWorkingDirectory}", OutputStreamType.SystemMessage);
+            EmitOutput($"[Terminal] {(IsCmd ? "Invite de commandes" : "PowerShell")} démarré dans {CurrentWorkingDirectory}",
+                OutputStreamType.SystemMessage);
             return Task.CompletedTask;
         }
 
@@ -136,7 +143,7 @@ namespace KeycesCode.Execution.Services
             CurrentWorkingDirectory = fullPath;
 
             if (IsSessionActive)
-                await SendInputAsync($"cd \"{fullPath}\"", cancellationToken);
+                await SendInputAsync(IsCmd ? $"cd /d \"{fullPath}\"" : $"cd \"{fullPath}\"", cancellationToken);
         }
 
         public Task StopSessionAsync()

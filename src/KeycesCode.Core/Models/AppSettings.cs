@@ -9,7 +9,12 @@ public sealed record AppSettings
     public bool AutoSave { get; init; } = false;
     public int AutoSaveDelaySeconds { get; init; } = 30;
     public bool ShowMinimap { get; init; } = true;
-    public string AssistantModel { get; init; } = "qwen2.5-coder:1.5b";
+
+    // Terminal : « powershell » ou « cmd » (Invite de commandes)
+    public string TerminalShell { get; init; } = "powershell";
+    // Assistant IA (Google Gemini) : modèle et clé API (gratuite sur aistudio.google.com/apikey)
+    public string AssistantModel { get; init; } = "gemini-flash-latest";
+    public string GeminiApiKey { get; init; } = "";
 
     // Derniers dossiers ouverts (le plus récent en premier), affichés sur la page d'accueil
     public IReadOnlyList<string> RecentFolders { get; init; } = [];

@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using KeycesCode.Core.Abstractions;
 using KeycesCode.Core.Models;
 
@@ -76,7 +77,9 @@ public sealed class OllamaAssistantService : IAssistantService
         var body = new ChatRequest(
             model,
             messages.Select(m => new OllamaMessage(ToRole(m.Role), m.Content)).ToList(),
-            Stream: true);
+            Stream: true,
+            // Mémoire de 8192 jetons : assez pour un fichier entier + la question
+            Options: new ChatOptions(NumCtx: 8192));
 
         using var response = await SendAsync(body, cancellationToken);
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -148,7 +151,8 @@ public sealed class OllamaAssistantService : IAssistantService
 }
 
 // Formes des JSON échangés avec Ollama
-internal sealed record ChatRequest(string Model, IReadOnlyList<OllamaMessage> Messages, bool Stream);
+internal sealed record ChatRequest(string Model, IReadOnlyList<OllamaMessage> Messages, bool Stream, ChatOptions Options);
+internal sealed record ChatOptions([property: JsonPropertyName("num_ctx")] int NumCtx);
 internal sealed record OllamaMessage(string Role, string Content);
 internal sealed record ChatChunk(OllamaMessage? Message, bool Done, string? Error);
 internal sealed record TagsResponse(IReadOnlyList<ModelInfo>? Models);

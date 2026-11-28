@@ -8,6 +8,7 @@ $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
 # 1. Publier l'application : un seul .exe autonome (.NET inclus, rien à installer en plus)
+#    ReadyToRun : le code est déjà compilé pour Windows, l'application démarre plus vite
 Write-Host "1/2  Publication de l'application..." -ForegroundColor Cyan
 if (Test-Path publish) { Remove-Item -Recurse -Force publish }
 
@@ -15,6 +16,7 @@ dotnet publish src\KeycesCode.App\KeycesCode.App.csproj `
     -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:PublishReadyToRun=true `
     -p:DebugType=None `
     -o publish
 

@@ -4,10 +4,10 @@ namespace KeycesCode.Core.Abstractions;
 
 public interface IAssistantService
 {
-    // Ollama est-il lancé ?
+    // Le service d'IA est-il joignable ?
     Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default);
 
-    // Modèles installés (ex. qwen2.5-coder:1.5b)
+    // Modèles disponibles (ex. gemini-flash-latest)
     Task<IReadOnlyList<string>> GetModelsAsync(CancellationToken cancellationToken = default);
 
     // Envoie la conversation et renvoie la réponse morceau par morceau

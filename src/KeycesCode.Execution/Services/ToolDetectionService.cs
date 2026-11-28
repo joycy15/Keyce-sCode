@@ -13,6 +13,10 @@ namespace KeycesCode.Execution.Services
 {
     public class ToolDetectionService : IToolDetectionService
     {
+        // Outils déjà trouvés (python, dotnet...) : on ne relance pas « where » et « --version » à chaque exécution
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, ToolInfo> FoundTools =
+            new(StringComparer.OrdinalIgnoreCase);
+
         private static readonly (string Id, string Name, string Command, string VersionArg)[] KnownTools =
         {
             ("dotnet", ".NET SDK", "dotnet", "--version"),
@@ -65,8 +69,15 @@ namespace KeycesCode.Execution.Services
             if (string.IsNullOrEmpty(def.Id))
                 return null;
 
+            if (FoundTools.TryGetValue(def.Id, out ToolInfo? known))
+                return known;
+
             var info = await ProbeToolAsync(def.Id, def.Name, def.Command, def.VersionArg, cancellationToken);
-            return info.IsAvailable ? info : null;
+            if (!info.IsAvailable)
+                return null;
+
+            FoundTools[def.Id] = info;
+            return info;
         }
 
         public async Task<bool> IsToolAvailableAsync(string toolIdOrCommand, CancellationToken cancellationToken = default)

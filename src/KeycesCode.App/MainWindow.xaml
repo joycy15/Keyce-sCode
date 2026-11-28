@@ -4,7 +4,8 @@
         xmlns:git="clr-namespace:KeycesCode.Settings.Git;assembly=KeycesCode.Settings"
         xmlns:set="clr-namespace:KeycesCode.Settings;assembly=KeycesCode.Settings"
         xmlns:ai="clr-namespace:KeycesCode.Assistant;assembly=KeycesCode.Assistant"
-        Title="KEYCE CODE"
+        Title="Keyce'sCode"
+        Icon="/Assets/keycescode.ico"
         Height="850"
         Width="1450"
         MinHeight="600"
@@ -13,11 +14,21 @@
         WindowState="Maximized"
         Background="{DynamicResource AppBackground}"
         Foreground="{DynamicResource PrimaryText}"
-        FontFamily="Segoe UI Variable Text"
+        FontFamily="Segoe UI"
         FontSize="13"
-        BorderBrush="{DynamicResource BorderBrush}"
-        BorderThickness="1"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display"
+        StateChanged="Window_StateChanged"
         PreviewKeyDown="Window_PreviewKeyDown">
+
+    <!-- Barre de titre personnalisée comme VS Code : logo + menus + titre au centre + boutons Windows -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="30"
+                      ResizeBorderThickness="5"
+                      GlassFrameThickness="0"
+                      CornerRadius="0"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
 
     <Window.Resources>
         <!-- Page d'accueil : liens comme dans VS Code -->
@@ -26,8 +37,8 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="HorizontalAlignment" Value="Left"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Margin" Value="0,3"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Margin" Value="0,2"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -64,727 +75,715 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Onglets du panneau du bas : PROBLEMS, OUTPUT, TERMINAL, DEBUG CONSOLE (soulignés quand actifs) -->
         <Style x:Key="BottomPanelTab" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="{DynamicResource SecondaryText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource PanelTabText}"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="14,7"/>
-            <Setter Property="Margin" Value="0,0,2,0"/>
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="0,8,0,6"/>
+            <Setter Property="Margin" Value="10,0"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Focusable" Value="False"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Grid>
-                            <Border x:Name="TabSurface"
-                                    Background="{TemplateBinding Background}"
-                                    CornerRadius="4,4,0,0"
-                                    BorderThickness="0"
-                                    Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="Left"
-                                                  VerticalAlignment="Center"/>
-                            </Border>
-                            <Border x:Name="TabUnderline"
-                                    Height="1"
-                                    VerticalAlignment="Bottom"
-                                    Background="Transparent"/>
+                        <Grid Background="Transparent">
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Border x:Name="TabUnderline" Height="1" VerticalAlignment="Bottom"
+                                    Background="{DynamicResource PanelTabActive}" Opacity="0"/>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
-                            </Trigger>
-                            <Trigger Property="Tag" Value="Active">
-                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
-                                <Setter TargetName="TabUnderline" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource PanelTabActive}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Petits boutons d'action (explorateur, panneau du bas) -->
         <Style x:Key="ExplorerActionButton" TargetType="Button">
-            <Setter Property="Width" Value="24"/>
-            <Setter Property="Height" Value="24"/>
+            <Setter Property="Width" Value="22"/>
+            <Setter Property="Height" Value="22"/>
             <Setter Property="Margin" Value="1,0"/>
-            <Setter Property="Padding" Value="5"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
+            <Setter Property="Focusable" Value="False"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="ToolTipService.ShowDuration" Value="10000"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="ButtonBorder"
-                                Background="Transparent"
-                                CornerRadius="3">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
+                        <Border x:Name="ButtonBorder" Background="Transparent" CornerRadius="5">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonBorder"
-                                        Property="Background"
-                                        Value="{DynamicResource HoverBackground}"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonBorder"
-                                        Property="Background"
-                                        Value="{DynamicResource SelectedBackground}"/>
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource ToolbarHover}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Icônes de la barre d'activité (à gauche) : grises, blanches + trait blanc quand actives -->
         <Style x:Key="ActivityButton" TargetType="Button">
             <Setter Property="Width" Value="48"/>
             <Setter Property="Height" Value="48"/>
-            <Setter Property="Margin" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="{DynamicResource SecondaryText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ActivityBarInactive}"/>
             <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Focusable" Value="False"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="12"/>
             <Setter Property="ToolTipService.ShowDuration" Value="10000"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Grid Background="{TemplateBinding Background}">
-                            <Border x:Name="HoverFill"
-                                    Background="Transparent"
-                                    BorderBrush="Transparent"
-                                    BorderThickness="0"/>
-                            <Border x:Name="ActiveIndicator"
-                                    Width="2"
-                                    HorizontalAlignment="Left"
-                                    VerticalAlignment="Stretch"
-                                    Background="{TemplateBinding Foreground}"
-                                    Opacity="0"/>
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
+                        <Grid Background="Transparent">
+                            <Border x:Name="ActiveIndicator" Width="2" HorizontalAlignment="Left"
+                                    Background="{DynamicResource ActivityBarIndicator}" Opacity="0"/>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="HoverFill" Property="Background" Value="{DynamicResource HoverBackground}"/>
-                                <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="HoverFill" Property="Background" Value="{DynamicResource SelectedBackground}"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.65"/>
+                                <Setter Property="Foreground" Value="{DynamicResource ActivityBarForeground}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="ActivityButtonActive" TargetType="Button" BasedOn="{StaticResource ActivityButton}">
+            <Setter Property="Foreground" Value="{DynamicResource ActivityBarForeground}"/>
+        </Style>
+        <Style x:Key="BottomPanelTabActive" TargetType="Button" BasedOn="{StaticResource BottomPanelTab}">
+            <Setter Property="Foreground" Value="{DynamicResource PanelTabActive}"/>
+        </Style>
     </Window.Resources>
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="30"/>
-            <RowDefinition Height="30"/>
-            <RowDefinition x:Name="EditorRow" Height="*" MinHeight="80"/>
-            <RowDefinition x:Name="BottomPanelRow" Height="240" MinHeight="90"/>
-            <RowDefinition Height="22"/>
-        </Grid.RowDefinitions>
+    <!-- RootBorder : quand la fenêtre est agrandie, on ajoute une marge pour ne pas déborder de l'écran -->
+    <Border x:Name="RootBorder" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="30"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="22"/>
+            </Grid.RowDefinitions>
 
-        <Border Grid.Row="0"
-                Background="{DynamicResource TitleBarBackground}"
-                BorderBrush="{DynamicResource BorderBrush}"
-                BorderThickness="0,0,0,1">
-            <DockPanel Margin="12,0">
-                <Border Width="16"
-                        Height="16"
-                        CornerRadius="3"
-                        Background="{DynamicResource AccentBrush}"
-                        VerticalAlignment="Center"
-                        Margin="0,0,9,0">
-                    <TextBlock Text="K"
-                               FontSize="10"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource LogoText}"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"/>
-                </Border>
-                <TextBlock Text="KEYCE CODE"
-                           FontSize="12"
-                           VerticalAlignment="Center"
-                           Foreground="{DynamicResource PrimaryText}"/>
-                <TextBlock Text="— Development Environment"
-                           Foreground="{DynamicResource SecondaryText}"
-                           FontSize="12"
-                           VerticalAlignment="Center"/>
-            </DockPanel>
-        </Border>
+            <!-- ===================== Barre de titre ===================== -->
+            <Grid Grid.Row="0" Background="{DynamicResource TitleBarBackground}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-        <Border Grid.Row="1" Background="{DynamicResource SidebarBackground}">
-            <Menu Background="Transparent" Foreground="{DynamicResource PrimaryText}">
-                <MenuItem Header="_File">
-                    <MenuItem Header="Nouveau fichier..." Click="WelcomeNewFile_Click"/>
-                    <MenuItem Header="Ouvrir un fichier..." Click="WelcomeOpenFile_Click"/>
-                    <MenuItem Header="_Open Folder..." Click="OpenFolder_Click"/>
-                    <MenuItem Header="Fermer le dossier" Click="CloseFolder_Click"/>
-                    <Separator/>
-                    <MenuItem Header="_Save" InputGestureText="Ctrl+S" Click="SaveDocument_Click"/>
-                </MenuItem>
-                <MenuItem Header="_Edit"/>
-                <MenuItem Header="_Selection"/>
-                <MenuItem Header="_View">
-                    <MenuItem Header="Explorateur" InputGestureText="Ctrl+Shift+E" Tag="Explorer" Click="ViewMenu_Click"/>
-                    <MenuItem Header="Recherche" InputGestureText="Ctrl+Shift+F" Tag="Search" Click="ViewMenu_Click"/>
-                    <MenuItem Header="Contrôle de code source" InputGestureText="Ctrl+Shift+G" Tag="Source Control" Click="ViewMenu_Click"/>
-                    <MenuItem Header="Assistant IA" InputGestureText="Ctrl+Shift+I" Tag="Assistant" Click="ViewMenu_Click"/>
-                    <MenuItem Header="Panneau du bas" InputGestureText="Ctrl+J" Click="TogglePanel_Click"/>
-                    <Separator/>
-                    <MenuItem Header="Paramètres" InputGestureText="Ctrl+," Click="Settings_Click"/>
-                </MenuItem>
-                <MenuItem Header="_Run">
-                    <MenuItem Header="Exécuter le fichier" InputGestureText="Ctrl+F5" Click="RunFile_Click"/>
-                    <MenuItem Header="Déboguer le fichier" InputGestureText="F5" Click="DebugFile_Click"/>
-                    <MenuItem Header="Arrêter" InputGestureText="Shift+F5" Click="StopRun_Click"/>
-                </MenuItem>
-                <MenuItem Header="_Terminal">
-                    <MenuItem Header="Afficher le terminal" InputGestureText="Ctrl+Shift+T" Click="ShowTerminal_Click"/>
-                    <MenuItem Header="Effacer le terminal" Click="ClearTerminal_Click"/>
-                    <MenuItem Header="Redémarrer le terminal" Click="RestartTerminal_Click"/>
-                </MenuItem>
-                <MenuItem Header="_Help"/>
-            </Menu>
-        </Border>
+                <!-- Titre au centre : « fichier — dossier — Keyce'sCode » -->
+                <TextBlock x:Name="TitleText" Grid.ColumnSpan="3"
+                           Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           FontSize="12" IsHitTestVisible="False" TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource TitleBarText}"/>
 
-        <Grid Grid.Row="2">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="48"/>
-                <ColumnDefinition Width="260" MinWidth="180" MaxWidth="500"/>
-                <ColumnDefinition Width="1"/>
-                <ColumnDefinition Width="*" MinWidth="300"/>
-            </Grid.ColumnDefinitions>
-
-            <Border Grid.Column="0" Background="{DynamicResource SidebarBackground}">
-                <DockPanel>
-                <Button DockPanel.Dock="Bottom"
-                        Style="{StaticResource ActivityButton}"
-                        Tag="Settings"
-                        ToolTip="Paramètres (Ctrl+,)"
-                        Margin="0,0,0,6"
-                        Click="Settings_Click">
-                    <Viewbox Width="22" Height="22">
-                        <Canvas Width="24" Height="24">
-                            <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                  StrokeThickness="1.55"
-                                  StrokeLineJoin="Round"
-                                  Data="M12,8.75 A3.25,3.25 0 1 1 12,15.25 A3.25,3.25 0 1 1 12,8.75 M12,2.5 L12,5 M12,19 L12,21.5 M4.2,4.2 L6.4,6.4 M17.6,17.6 L19.8,19.8 M2.5,12 L5,12 M19,12 L21.5,12 M4.2,19.8 L6.4,17.6 M17.6,6.4 L19.8,4.2"/>
-                        </Canvas>
-                    </Viewbox>
-                </Button>
-                <StackPanel x:Name="ActivityBar" HorizontalAlignment="Center" Margin="0,6">
-                    <Button x:Name="ExplorerActivity"
-                            Style="{StaticResource ActivityButton}"
-                            Foreground="{DynamicResource AccentBrush}"
-                            Tag="Explorer"
-                            ToolTip="Explorer"
-                            Click="ActivityButton_Click">
-                        <Viewbox Width="24" Height="24">
-                            <Canvas Width="24" Height="24">
-                                <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                      StrokeThickness="1.55"
-                                      StrokeLineJoin="Round"
-                                      StrokeStartLineCap="Round"
-                                      StrokeEndLineCap="Round"
-                                      Data="M3.5,6.5 L9.5,6.5 L11.5,8.5 L20.5,8.5 L20.5,19 L3.5,19 Z M3.5,10 L20.5,10"/>
-                            </Canvas>
-                        </Viewbox>
-                    </Button>
-                    <Button Style="{StaticResource ActivityButton}"
-                            Tag="Search"
-                            ToolTip="Search"
-                            Click="ActivityButton_Click">
-                        <Viewbox Width="24" Height="24">
-                            <Canvas Width="24" Height="24">
-                                <Ellipse Width="12" Height="12"
-                                         Canvas.Left="3" Canvas.Top="3"
-                                         Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                         StrokeThickness="1.65"/>
-                                <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                      StrokeThickness="1.65"
-                                      StrokeStartLineCap="Round"
-                                      StrokeEndLineCap="Round"
-                                      Data="M13.2,13.2 L20,20"/>
-                            </Canvas>
-                        </Viewbox>
-                    </Button>
-                    <Button Style="{StaticResource ActivityButton}"
-                            Tag="Source Control"
-                            ToolTip="Source Control"
-                            Click="ActivityButton_Click">
-                        <Viewbox Width="24" Height="24">
-                            <Canvas Width="24" Height="24">
-                                <Ellipse Width="5" Height="5" Canvas.Left="4.5" Canvas.Top="2"
-                                         Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                                <Ellipse Width="5" Height="5" Canvas.Left="14.5" Canvas.Top="2"
-                                         Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                                <Ellipse Width="5" Height="5" Canvas.Left="4.5" Canvas.Top="17"
-                                         Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                                <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                      StrokeThickness="1.55"
-                                      Data="M7,7 L7,17 M17,7 L17,10 C17,13.5 14.5,15 11.5,15 L7,15"/>
-                            </Canvas>
-                        </Viewbox>
-                    </Button>
-                    <Button Style="{StaticResource ActivityButton}"
-                            Tag="Assistant"
-                            ToolTip="Assistant IA (Ctrl+Shift+I)"
-                            Click="ActivityButton_Click">
-                        <Viewbox Width="24" Height="24">
-                            <Canvas Width="24" Height="24">
-                                <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                      StrokeThickness="1.55"
-                                      StrokeLineJoin="Round"
-                                      Data="M4,5 L20,5 L20,16 L11,16 L7,20 L7,16 L4,16 Z M8,9.5 L16,9.5 M8,12.5 L13,12.5"/>
-                            </Canvas>
-                        </Viewbox>
-                    </Button>
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <Image Source="/Assets/logo.png" Width="16" Height="16" Margin="10,0,6,0"
+                           VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <Menu Background="Transparent" VerticalAlignment="Center" FontSize="13"
+                          Foreground="{DynamicResource TitleBarText}"
+                          WindowChrome.IsHitTestVisibleInChrome="True">
+                        <MenuItem Header="_File">
+                            <MenuItem Header="Nouveau fichier..." InputGestureText="Ctrl+N" Click="WelcomeNewFile_Click"/>
+                            <MenuItem Header="Ouvrir un fichier..." InputGestureText="Ctrl+O" Click="WelcomeOpenFile_Click"/>
+                            <MenuItem Header="Ouvrir un dossier..." InputGestureText="Ctrl+K Ctrl+O" Click="OpenFolder_Click"/>
+                            <Separator/>
+                            <MenuItem Header="Enregistrer" InputGestureText="Ctrl+S" Click="SaveDocument_Click"/>
+                            <MenuItem Header="Tout enregistrer" Click="SaveAll_Click"/>
+                            <Separator/>
+                            <MenuItem Header="Fermer l'éditeur" InputGestureText="Ctrl+W" Click="CloseEditor_Click"/>
+                            <MenuItem Header="Fermer le dossier" Click="CloseFolder_Click"/>
+                            <Separator/>
+                            <MenuItem Header="Paramètres" InputGestureText="Ctrl+," Click="Settings_Click"/>
+                            <Separator/>
+                            <MenuItem Header="Quitter" Click="CloseWindow_Click"/>
+                        </MenuItem>
+                        <MenuItem Header="_Edit">
+                            <MenuItem Header="Annuler" InputGestureText="Ctrl+Z" Command="ApplicationCommands.Undo"/>
+                            <MenuItem Header="Rétablir" InputGestureText="Ctrl+Y" Command="ApplicationCommands.Redo"/>
+                            <Separator/>
+                            <MenuItem Header="Couper" InputGestureText="Ctrl+X" Command="ApplicationCommands.Cut"/>
+                            <MenuItem Header="Copier" InputGestureText="Ctrl+C" Command="ApplicationCommands.Copy"/>
+                            <MenuItem Header="Coller" InputGestureText="Ctrl+V" Command="ApplicationCommands.Paste"/>
+                        </MenuItem>
+                        <MenuItem Header="_Selection">
+                            <MenuItem Header="Tout sélectionner" InputGestureText="Ctrl+A" Command="ApplicationCommands.SelectAll"/>
+                        </MenuItem>
+                        <MenuItem Header="_View">
+                            <MenuItem Header="Explorateur" InputGestureText="Ctrl+Shift+E" Tag="Explorer" Click="ViewMenu_Click"/>
+                            <MenuItem Header="Recherche" InputGestureText="Ctrl+Shift+F" Tag="Search" Click="ViewMenu_Click"/>
+                            <MenuItem Header="Contrôle de code source" InputGestureText="Ctrl+Shift+G" Tag="Source Control" Click="ViewMenu_Click"/>
+                            <MenuItem Header="Assistant IA" InputGestureText="Ctrl+Shift+I" Tag="Assistant" Click="ViewMenu_Click"/>
+                            <Separator/>
+                            <MenuItem Header="Barre latérale" InputGestureText="Ctrl+B" Click="ToggleSidebar_Click"/>
+                            <MenuItem Header="Panneau du bas" InputGestureText="Ctrl+J" Click="TogglePanel_Click"/>
+                        </MenuItem>
+                        <MenuItem Header="_Run">
+                            <MenuItem Header="Exécuter le fichier" InputGestureText="Ctrl+F5" Click="RunFile_Click"/>
+                            <MenuItem Header="Déboguer le fichier" InputGestureText="F5" Click="DebugFile_Click"/>
+                            <MenuItem Header="Arrêter" InputGestureText="Shift+F5" Click="StopRun_Click"/>
+                        </MenuItem>
+                        <MenuItem Header="_Terminal">
+                            <MenuItem Header="Afficher le terminal" InputGestureText="Ctrl+Shift+T" Click="ShowTerminal_Click"/>
+                            <MenuItem Header="Effacer le terminal" Click="ClearTerminal_Click"/>
+                            <MenuItem Header="Redémarrer le terminal" Click="RestartTerminal_Click"/>
+                        </MenuItem>
+                        <MenuItem Header="_Help">
+                            <MenuItem Header="À propos de Keyce'sCode" Click="About_Click"/>
+                        </MenuItem>
+                    </Menu>
                 </StackPanel>
-                </DockPanel>
-            </Border>
 
-            <Border Grid.Column="1"
-                    Background="{DynamicResource SidebarBackground}"
-                    BorderBrush="{DynamicResource BorderBrush}"
-                    BorderThickness="0,0,1,0">
-                <Grid Margin="10,8,10,8">
-                    <Grid x:Name="ExplorerPanel">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <DockPanel Margin="0,0,0,10">
-                            <TextBlock Text="EXPLORER"
-                                       Style="{StaticResource PanelTitle}"
-                                       VerticalAlignment="Center"
-                                       DockPanel.Dock="Left"/>
-                            <StackPanel Orientation="Horizontal"
-                                        HorizontalAlignment="Right"
-                                        DockPanel.Dock="Right">
-                                <Button Style="{StaticResource ExplorerActionButton}"
-                                        ToolTip="New File"
-                                        Click="NewFile_Click">
-                                    <Viewbox Width="14" Height="14">
-                                        <Canvas Width="16" Height="16">
-                                            <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  StrokeThickness="1"
-                                                  Data="M3,2 L10,2 L13,5 L13,14 L3,14 Z M10,2 L10,6 L13,6"/>
-                                            <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  StrokeThickness="1"
-                                                  Data="M6.5,9.5 L11.5,9.5 M9,7 L9,12"/>
-                                        </Canvas>
-                                    </Viewbox>
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button Style="{StaticResource CaptionButton}" Content="&#xE921;" ToolTip="Réduire"
+                            Click="MinimizeWindow_Click"/>
+                    <Button x:Name="MaximizeButton" Style="{StaticResource CaptionButton}" Content="&#xE923;"
+                            ToolTip="Restaurer" Click="MaximizeWindow_Click"/>
+                    <Button Style="{StaticResource CaptionCloseButton}" Content="&#xE8BB;" ToolTip="Fermer"
+                            Click="CloseWindow_Click"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- ===================== Barre d'activité + barre latérale + éditeur ===================== -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="48"/>
+                    <ColumnDefinition x:Name="SidebarColumn" Width="280" MinWidth="170" MaxWidth="600"/>
+                    <ColumnDefinition x:Name="SplitterColumn" Width="4"/>
+                    <ColumnDefinition Width="*" MinWidth="300"/>
+                    <ColumnDefinition x:Name="ChatSplitterColumn" Width="0"/>
+                    <ColumnDefinition x:Name="ChatColumn" Width="0" MaxWidth="800"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Barre d'activité -->
+                <Border Grid.Column="0" Background="{DynamicResource ActivityBarBackground}">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Bottom"
+                                Style="{StaticResource ActivityButton}"
+                                ToolTip="Paramètres (Ctrl+,)"
+                                Margin="0,0,0,4"
+                                Click="Settings_Click">
+                            <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="22"/>
+                        </Button>
+                        <StackPanel x:Name="ActivityBar">
+                            <Button x:Name="ExplorerActivity"
+                                    Style="{StaticResource ActivityButton}"
+                                    Tag="Explorer"
+                                    ToolTip="Explorateur (Ctrl+Shift+E)"
+                                    Click="ActivityButton_Click">
+                                <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="23"/>
+                            </Button>
+                            <Button Style="{StaticResource ActivityButton}"
+                                    Tag="Search"
+                                    ToolTip="Recherche (Ctrl+Shift+F)"
+                                    Click="ActivityButton_Click">
+                                <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="22"/>
+                            </Button>
+                            <Button Style="{StaticResource ActivityButton}"
+                                    Tag="Source Control"
+                                    ToolTip="Contrôle de code source (Ctrl+Shift+G)"
+                                    Click="ActivityButton_Click">
+                                <Viewbox Width="24" Height="24">
+                                    <Canvas Width="24" Height="24">
+                                        <Ellipse Width="5" Height="5" Canvas.Left="4.5" Canvas.Top="2"
+                                                 Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5"/>
+                                        <Ellipse Width="5" Height="5" Canvas.Left="14.5" Canvas.Top="6"
+                                                 Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5"/>
+                                        <Ellipse Width="5" Height="5" Canvas.Left="4.5" Canvas.Top="17"
+                                                 Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5"/>
+                                        <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              StrokeThickness="1.5"
+                                              Data="M7,7 L7,17 M17,11 C17,14 14,15 11,15 L7,15"/>
+                                    </Canvas>
+                                </Viewbox>
+                            </Button>
+                            <Button Style="{StaticResource ActivityButton}"
+                                    Tag="Assistant"
+                                    ToolTip="Assistant IA (Ctrl+Shift+I)"
+                                    Click="ActivityButton_Click">
+                                <TextBlock Text="&#xE8BD;" FontFamily="Segoe MDL2 Assets" FontSize="22"/>
+                            </Button>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <!-- Barre latérale -->
+                <Border x:Name="SidebarHost" Grid.Column="1" Background="{DynamicResource SidebarBackground}">
+                    <Grid>
+                        <Grid x:Name="ExplorerPanel">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="35"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <DockPanel Margin="20,0,8,0">
+                                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                                    <Button Style="{StaticResource ExplorerActionButton}" ToolTip="Nouveau fichier"
+                                            Click="NewFile_Click">
+                                        <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" FontSize="13"/>
+                                    </Button>
+                                    <Button Style="{StaticResource ExplorerActionButton}" ToolTip="Nouveau dossier"
+                                            Click="NewFolder_Click">
+                                        <TextBlock Text="&#xE8F4;" FontFamily="Segoe MDL2 Assets" FontSize="13"/>
+                                    </Button>
+                                    <Button Style="{StaticResource ExplorerActionButton}" ToolTip="Actualiser l'explorateur"
+                                            Click="RefreshExplorer_Click">
+                                        <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="13"/>
+                                    </Button>
+                                    <Button Style="{StaticResource ExplorerActionButton}" ToolTip="Réduire les dossiers"
+                                            Click="CollapseFolders_Click">
+                                        <TextBlock Text="&#xE8C4;" FontFamily="Segoe MDL2 Assets" FontSize="13"/>
+                                    </Button>
+                                </StackPanel>
+                                <TextBlock Text="EXPLORER" Style="{StaticResource PanelTitle}" VerticalAlignment="Center"/>
+                            </DockPanel>
+                            <TextBlock x:Name="WorkspaceLabel" Grid.Row="1" Visibility="Collapsed"/>
+                            <TreeView x:Name="ExplorerTree" Grid.Row="2"
+                                      Background="Transparent"
+                                      BorderThickness="0"
+                                      Foreground="{DynamicResource PrimaryText}"
+                                      VirtualizingPanel.IsVirtualizing="True"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+
+                            <!-- Aucun dossier ouvert : comme dans VS Code -->
+                            <StackPanel x:Name="NoFolderPanel" Grid.Row="1" Grid.RowSpan="2" Margin="20,4,20,0"
+                                        Visibility="Collapsed">
+                                <TextBlock Text="Tu n'as pas encore ouvert de dossier."
+                                           TextWrapping="Wrap" Foreground="{DynamicResource PrimaryText}"/>
+                                <Button Content="Ouvrir un dossier" Margin="0,14,0,0" Padding="0,6"
+                                        HorizontalAlignment="Stretch" Cursor="Hand" Click="OpenFolder_Click"/>
+                                <TextBlock Text="Ouvrir un dossier permet de voir ses fichiers ici, de les modifier et d'utiliser Git."
+                                           TextWrapping="Wrap" Margin="0,14,0,0" LineHeight="20"
+                                           Foreground="{DynamicResource PrimaryText}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid x:Name="SearchPanel" Visibility="Collapsed">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="35"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="SEARCH" Style="{StaticResource PanelTitle}"
+                                       Margin="20,0,0,0" VerticalAlignment="Center"/>
+                            <Grid Grid.Row="1" Margin="20,0,12,8">
+                                <TextBox x:Name="SearchBox" Height="26" Padding="6,3,28,3"
+                                         VerticalContentAlignment="Center"
+                                         BorderBrush="{DynamicResource InputBackground}"
+                                         KeyDown="SearchBox_KeyDown"/>
+                                <Button Style="{StaticResource ExplorerActionButton}" HorizontalAlignment="Right"
+                                        Margin="0,0,3,0" ToolTip="Rechercher (Entrée)" Click="SearchButton_Click">
+                                    <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
                                 </Button>
-                                <Button Style="{StaticResource ExplorerActionButton}"
-                                        ToolTip="New Folder"
-                                        Click="NewFolder_Click">
-                                    <Viewbox Width="14" Height="14">
-                                        <Canvas Width="16" Height="16">
-                                            <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  StrokeThickness="1"
-                                                  Data="M1.5,3.5 L6.5,3.5 L8,5.5 L14.5,5.5 L14.5,13 L1.5,13 Z"/>
-                                            <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  StrokeThickness="1"
-                                                  Data="M8,7.5 L8,11.5 M6,9.5 L10,9.5"/>
-                                        </Canvas>
-                                    </Viewbox>
+                            </Grid>
+                            <ListBox x:Name="SearchResults" Grid.Row="2"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     Foreground="{DynamicResource PrimaryText}"
+                                     VirtualizingPanel.IsVirtualizing="True"
+                                     MouseDoubleClick="SearchResults_MouseDoubleClick"/>
+                        </Grid>
+
+                        <!-- Membre 5 : Git/GitHub (avec ses propres styles) -->
+                        <Grid>
+                            <Grid.Resources>
+                                <ResourceDictionary Source="pack://application:,,,/KeycesCode.Settings;component/Themes/Controls.xaml"/>
+                            </Grid.Resources>
+                            <git:GitPanel x:Name="SourceControlPanel"
+                                          Visibility="Collapsed"
+                                          FolderOpened="SourceControlPanel_FolderOpened"
+                                          BranchChanged="SourceControlPanel_BranchChanged"/>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <GridSplitter Grid.Column="2"
+                              Width="4"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch"
+                              ResizeDirection="Columns"
+                              ResizeBehavior="PreviousAndNext"
+                              Background="{DynamicResource EditorBackground}"
+                              Focusable="False"
+                              ShowsPreview="False"/>
+
+                <!-- Éditeur + panneau du bas (comme VS Code : le terminal reste sous l'éditeur, pas sous l'explorateur) -->
+                <Grid Grid.Column="3">
+                    <Grid.RowDefinitions>
+                        <RowDefinition x:Name="EditorRow" Height="*" MinHeight="80"/>
+                        <RowDefinition x:Name="BottomPanelRow" Height="250" MinHeight="90"/>
+                    </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Background="{DynamicResource EditorBackground}">
+                    <TabControl x:Name="EditorTabs"
+                                SelectionChanged="EditorTabs_SelectionChanged"/>
+
+                    <!-- Page d'accueil (aucun fichier ouvert), inspirée de VS Code -->
+                    <ScrollViewer x:Name="WelcomePanel" VerticalScrollBarVisibility="Auto"
+                                  Background="{DynamicResource EditorBackground}">
+                        <Grid Margin="90,70,50,40" MaxWidth="1000" HorizontalAlignment="Left">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" MinWidth="320"/>
+                                <ColumnDefinition Width="*" MinWidth="320"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,0,0,40">
+                                <Image Source="/Assets/logo.png" Width="72" Height="72" Margin="0,0,20,0"
+                                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Keyce'sCode" FontSize="34" FontWeight="Light"
+                                               Foreground="{DynamicResource PrimaryText}"/>
+                                    <TextBlock Text="Ton code. Ton environnement." FontSize="17" Margin="0,2,0,0"
+                                               Foreground="{DynamicResource SecondaryText}"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1">
+                                <TextBlock Text="Démarrer" FontSize="17" Margin="0,0,0,10"/>
+                                <Button Style="{StaticResource WelcomeLink}" Click="WelcomeNewFile_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" Margin="0,0,10,0" VerticalAlignment="Center" Foreground="{DynamicResource LinkText}"/>
+                                        <TextBlock Text="Nouveau fichier..." Foreground="{DynamicResource LinkText}"/>
+                                    </StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource ExplorerActionButton}"
-                                        ToolTip="Refresh Explorer"
-                                        Click="RefreshExplorer_Click">
-                                    <Viewbox Width="14" Height="14">
-                                        <Canvas Width="16" Height="16">
-                                            <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  StrokeThickness="1"
-                                                  Data="M13.5,5.5 A6,6 0 1 0 13.5,10.5 M13.5,2.5 L13.5,5.5 L10.5,5.5"/>
-                                        </Canvas>
-                                    </Viewbox>
+                                <Button Style="{StaticResource WelcomeLink}" Click="WelcomeOpenFile_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE8E5;" FontFamily="Segoe MDL2 Assets" Margin="0,0,10,0" VerticalAlignment="Center" Foreground="{DynamicResource LinkText}"/>
+                                        <TextBlock Text="Ouvrir un fichier..." Foreground="{DynamicResource LinkText}"/>
+                                    </StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource ExplorerActionButton}"
-                                        ToolTip="Collapse Folders"
-                                        Click="CollapseFolders_Click">
-                                    <Viewbox Width="14" Height="14">
-                                        <Canvas Width="16" Height="16">
-                                            <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  StrokeThickness="1"
-                                                  Data="M1.5,3 L8.5,3 M1.5,7 L8.5,7 M1.5,11 L8.5,11"/>
-                                            <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  StrokeThickness="1"
-                                                  Data="M11,5 L13.5,7.5 L11,10"/>
-                                        </Canvas>
-                                    </Viewbox>
+                                <Button Style="{StaticResource WelcomeLink}" Click="OpenFolder_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE838;" FontFamily="Segoe MDL2 Assets" Margin="0,0,10,0" VerticalAlignment="Center" Foreground="{DynamicResource LinkText}"/>
+                                        <TextBlock Text="Ouvrir un dossier..." Foreground="{DynamicResource LinkText}"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource WelcomeLink}" Click="WelcomeClone_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="⎇" FontFamily="Segoe UI Symbol" Margin="1,0,11,0" VerticalAlignment="Center" Foreground="{DynamicResource LinkText}"/>
+                                        <TextBlock Text="Cloner un dépôt Git..." Foreground="{DynamicResource LinkText}"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <TextBlock Text="Récents" FontSize="17" Margin="0,30,0,10"/>
+                                <ItemsControl x:Name="RecentList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource WelcomeLink}" Tag="{Binding Path}"
+                                                    Click="RecentFolder_Click" ToolTip="{Binding Path}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Name}" Foreground="{DynamicResource LinkText}"
+                                                               Margin="0,0,14,0"/>
+                                                    <TextBlock Text="{Binding Path}" Foreground="{DynamicResource SecondaryText}"
+                                                               TextTrimming="CharacterEllipsis" MaxWidth="320"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock x:Name="NoRecentText" Text="Aucun dossier récent."
+                                           Foreground="{DynamicResource SecondaryText}"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Grid.Column="1" Margin="50,0,0,0">
+                                <TextBlock Text="Découvrir" FontSize="17" Margin="0,0,0,10"/>
+                                <Button Style="{StaticResource WelcomeCard}" Tag="Assistant" Click="WelcomeCard_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="Assistant IA (Gemini)" FontSize="14" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Pose des questions sur ton code : l'assistant (Google Gemini) voit ton fichier et écrit directement dans l'éditeur."
+                                                   TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource SecondaryText}"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource WelcomeCard}" Tag="Source Control" Click="WelcomeCard_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="Git et GitHub" FontSize="14" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Commit, push, pull et clonage sans quitter l'éditeur."
+                                                   TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource SecondaryText}"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource WelcomeCard}" Tag="Terminal" Click="WelcomeCard_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="Terminal et exécution" FontSize="14" FontWeight="SemiBold"/>
+                                        <TextBlock Text="PowerShell intégré, Ctrl+F5 pour exécuter le fichier ouvert."
+                                                   TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource SecondaryText}"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource WelcomeCard}" Tag="Settings" Click="WelcomeCard_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="Personnaliser Keyce'sCode" FontSize="14" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Thème clair ou sombre, police, raccourcis, enregistrement automatique."
+                                                   TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource SecondaryText}"/>
+                                    </StackPanel>
                                 </Button>
                             </StackPanel>
-                        </DockPanel>
-                        <TextBlock x:Name="WorkspaceLabel" Grid.Row="1"
-                                   FontWeight="SemiBold"
-                                   TextTrimming="CharacterEllipsis"
-                                   ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
-                                   Margin="0,0,0,8"/>
-                        <TreeView x:Name="ExplorerTree" Grid.Row="2"
-                                  Background="Transparent"
-                                  BorderThickness="0"
-                                  Foreground="{DynamicResource PrimaryText}"/>
+                        </Grid>
+                    </ScrollViewer>
 
-                        <!-- Aucun dossier ouvert : comme dans VS Code -->
-                        <StackPanel x:Name="NoFolderPanel" Grid.Row="1" Grid.RowSpan="2" Visibility="Collapsed">
-                            <TextBlock Text="AUCUN DOSSIER OUVERT" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,12"/>
-                            <TextBlock Text="Tu n'as pas encore ouvert de dossier."
-                                       TextWrapping="Wrap" Foreground="{DynamicResource SecondaryText}"/>
-                            <Button Content="Ouvrir un dossier" Margin="0,14,0,0" Padding="0,7"
-                                    HorizontalAlignment="Stretch" Cursor="Hand" Click="OpenFolder_Click"/>
-                            <TextBlock Text="Ouvrir un dossier permet de voir ses fichiers ici, de les modifier et d'utiliser Git."
-                                       TextWrapping="Wrap" Margin="0,14,0,0" LineHeight="20"
-                                       Foreground="{DynamicResource SecondaryText}"/>
-                        </StackPanel>
-                    </Grid>
-
-                    <Grid x:Name="SearchPanel" Visibility="Collapsed">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Text="SEARCH"
-                                   Style="{StaticResource PanelTitle}"
-                                   Margin="0,0,0,10"/>
-                        <DockPanel Grid.Row="1" Margin="0,0,0,8">
-                            <Button Content="Find" Padding="8,3"
-                                    Click="SearchButton_Click"
-                                    DockPanel.Dock="Right"/>
-                            <TextBox x:Name="SearchBox" Height="27"
-                                     VerticalContentAlignment="Center"
-                                     KeyDown="SearchBox_KeyDown"/>
-                        </DockPanel>
-                        <ListBox x:Name="SearchResults" Grid.Row="2"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 Foreground="{DynamicResource PrimaryText}"
-                                 MouseDoubleClick="SearchResults_MouseDoubleClick"/>
-                    </Grid>
-
-                    <!-- Membre 5 : Git/GitHub et assistant IA (avec leurs propres styles) -->
-                    <Grid Margin="-10,-8,-10,-8">
+                    <!-- Membre 5 : la page Paramètres s'ouvre par-dessus l'éditeur -->
+                    <Grid x:Name="SettingsHost" Visibility="Collapsed">
                         <Grid.Resources>
                             <ResourceDictionary Source="pack://application:,,,/KeycesCode.Settings;component/Themes/Controls.xaml"/>
                         </Grid.Resources>
-                        <git:GitPanel x:Name="SourceControlPanel"
-                                      Visibility="Collapsed"
-                                      FolderOpened="SourceControlPanel_FolderOpened"
-                                      BranchChanged="SourceControlPanel_BranchChanged"/>
-                        <ai:AssistantPanel x:Name="AssistantView"
-                                           Visibility="Collapsed"/>
+                        <set:SettingsPage x:Name="SettingsEditor"/>
                     </Grid>
                 </Grid>
-            </Border>
 
-            <GridSplitter Grid.Column="2"
-                          Width="1"
-                          HorizontalAlignment="Stretch"
-                          VerticalAlignment="Stretch"
-                          ResizeDirection="Columns"
-                          ResizeBehavior="PreviousAndNext"
-                          Background="{DynamicResource BorderBrush}"
-                          ShowsPreview="False"/>
+                    <!-- Poignée pour redimensionner le panneau du bas (on la tire vers le haut ou le bas) -->
+                    <GridSplitter Grid.Row="1" Height="4" VerticalAlignment="Top" HorizontalAlignment="Stretch"
+                                  ResizeDirection="Rows" ResizeBehavior="PreviousAndCurrent"
+                                  Background="Transparent" Focusable="False" Panel.ZIndex="10"/>
 
-            <Grid Grid.Column="3" Background="{DynamicResource EditorBackground}">
-                <TabControl x:Name="EditorTabs"
-                            SelectionChanged="EditorTabs_SelectionChanged"
-                            Background="{DynamicResource EditorBackground}"
-                            BorderThickness="0"/>
-                <!-- Page d'accueil (aucun fichier ouvert), inspirée de VS Code -->
-                <ScrollViewer x:Name="WelcomePanel" VerticalScrollBarVisibility="Auto"
-                              Background="{DynamicResource EditorBackground}">
-                    <Grid Margin="90,70,50,40" MaxWidth="1000" HorizontalAlignment="Left">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" MinWidth="320"/>
-                            <ColumnDefinition Width="*" MinWidth="320"/>
-                        </Grid.ColumnDefinitions>
-
-                        <StackPanel Grid.ColumnSpan="2" Margin="0,0,0,40">
-                            <TextBlock Text="Keyce'sCode" FontSize="34" Foreground="{DynamicResource PrimaryText}"/>
-                            <TextBlock Text="Ton code. Ton environnement." FontSize="19" Margin="0,4,0,0"
-                                       Foreground="{DynamicResource SecondaryText}"/>
-                        </StackPanel>
-
-                        <StackPanel Grid.Row="1">
-                            <TextBlock Text="Démarrer" FontSize="19" Margin="0,0,0,10"/>
-                            <Button Style="{StaticResource WelcomeLink}" Click="WelcomeNewFile_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" Margin="0,0,10,0" VerticalAlignment="Center" Foreground="{DynamicResource LinkText}"/>
-                                    <TextBlock Text="Nouveau fichier..." Foreground="{DynamicResource LinkText}"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource WelcomeLink}" Click="WelcomeOpenFile_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE8E5;" FontFamily="Segoe MDL2 Assets" Margin="0,0,10,0" VerticalAlignment="Center" Foreground="{DynamicResource LinkText}"/>
-                                    <TextBlock Text="Ouvrir un fichier..." Foreground="{DynamicResource LinkText}"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource WelcomeLink}" Click="OpenFolder_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE838;" FontFamily="Segoe MDL2 Assets" Margin="0,0,10,0" VerticalAlignment="Center" Foreground="{DynamicResource LinkText}"/>
-                                    <TextBlock Text="Ouvrir un dossier..." Foreground="{DynamicResource LinkText}"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource WelcomeLink}" Click="WelcomeClone_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="⎇" FontFamily="Segoe UI Symbol" Margin="1,0,11,0" VerticalAlignment="Center" Foreground="{DynamicResource LinkText}"/>
-                                    <TextBlock Text="Cloner un dépôt Git..." Foreground="{DynamicResource LinkText}"/>
-                                </StackPanel>
-                            </Button>
-
-                            <TextBlock Text="Récents" FontSize="19" Margin="0,30,0,10"/>
-                            <ItemsControl x:Name="RecentList">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Button Style="{StaticResource WelcomeLink}" Tag="{Binding Path}"
-                                                Click="RecentFolder_Click" ToolTip="{Binding Path}">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource LinkText}"
-                                                           Margin="0,0,14,0"/>
-                                                <TextBlock Text="{Binding Path}" Foreground="{DynamicResource SecondaryText}"
-                                                           TextTrimming="CharacterEllipsis" MaxWidth="320"/>
+                    <!-- ===================== Panneau du bas ===================== -->
+                    <Border x:Name="BottomPanel" Grid.Row="1"
+                            Background="{DynamicResource PanelBackground}"
+                            BorderBrush="{DynamicResource PanelBorder}"
+                            BorderThickness="0,1,0,0">
+                        <DockPanel>
+                            <!-- Barre du panneau : onglets à gauche, actions à droite (comme VS Code) -->
+                            <DockPanel DockPanel.Dock="Top" Height="35" Margin="8,0,8,0">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <!-- Choix du shell (comme le menu « powershell ▾ » de VS Code) -->
+                                    <StackPanel x:Name="ShellLabel" Orientation="Horizontal" Margin="0,0,6,0" VerticalAlignment="Center">
+                                        <Button x:Name="ShellButton" Style="{StaticResource ExplorerActionButton}" Width="Auto"
+                                                ToolTip="Choisir le terminal : PowerShell ou Invite de commandes (cmd)"
+                                                Click="ShellButton_Click">
+                                            <StackPanel Orientation="Horizontal" Margin="6,0">
+                                                <TextBlock Text="&#xE756;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                                           VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                <TextBlock x:Name="ShellName" Text="powershell" VerticalAlignment="Center" FontSize="12"/>
+                                                <TextBlock Text="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="8"
+                                                           VerticalAlignment="Center" Margin="6,1,0,0"/>
                                             </StackPanel>
                                         </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <TextBlock x:Name="NoRecentText" Text="Aucun dossier récent."
-                                       Foreground="{DynamicResource SecondaryText}"/>
-                        </StackPanel>
-
-                        <StackPanel Grid.Row="1" Grid.Column="1" Margin="50,0,0,0">
-                            <TextBlock Text="Découvrir" FontSize="19" Margin="0,0,0,10"/>
-                            <Button Style="{StaticResource WelcomeCard}" Tag="Assistant" Click="WelcomeCard_Click">
-                                <StackPanel>
-                                    <TextBlock Text="Assistant IA local" FontSize="14" FontWeight="SemiBold"/>
-                                    <TextBlock Text="Pose des questions sur ton code. Tout reste sur ton PC (Ollama)."
-                                               TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource SecondaryText}"/>
+                                    </StackPanel>
+                                    <Button Style="{StaticResource ExplorerActionButton}" ToolTip="Nouveau terminal (redémarrer)"
+                                            Click="RestartTerminal_Click">
+                                        <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+                                    </Button>
+                                    <Button Style="{StaticResource ExplorerActionButton}" ToolTip="Effacer"
+                                            Click="ClearPanel_Click">
+                                        <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+                                    </Button>
+                                    <Button x:Name="MaximizePanelButton" Style="{StaticResource ExplorerActionButton}"
+                                            ToolTip="Agrandir le panneau" Click="MaximizePanel_Click">
+                                        <TextBlock x:Name="MaximizePanelIcon" Text="&#xE70E;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+                                    </Button>
+                                    <Button Style="{StaticResource ExplorerActionButton}" ToolTip="Masquer le panneau (Ctrl+J)"
+                                            Click="HidePanel_Click">
+                                        <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
+                                    </Button>
                                 </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource WelcomeCard}" Tag="Source Control" Click="WelcomeCard_Click">
-                                <StackPanel>
-                                    <TextBlock Text="Git et GitHub" FontSize="14" FontWeight="SemiBold"/>
-                                    <TextBlock Text="Commit, push, pull et clonage sans quitter l'éditeur."
-                                               TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource SecondaryText}"/>
+                                <StackPanel x:Name="BottomPanelTabs" Orientation="Horizontal">
+                                    <Button x:Name="ProblemsTab" Content="PROBLEMS" Style="{StaticResource BottomPanelTab}"
+                                            Tag="Problems" Click="BottomPanelTab_Click"/>
+                                    <Button x:Name="OutputTab" Content="OUTPUT" Style="{StaticResource BottomPanelTab}"
+                                            Tag="Output" Click="BottomPanelTab_Click"/>
+                                    <Button x:Name="TerminalTab" Content="TERMINAL" Style="{StaticResource BottomPanelTab}"
+                                            Tag="Terminal" Click="BottomPanelTab_Click"/>
+                                    <Button x:Name="DebugConsoleTab" Content="DEBUG CONSOLE" Style="{StaticResource BottomPanelTab}"
+                                            Tag="Debug Console" Click="BottomPanelTab_Click"/>
                                 </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource WelcomeCard}" Tag="Terminal" Click="WelcomeCard_Click">
-                                <StackPanel>
-                                    <TextBlock Text="Terminal et exécution" FontSize="14" FontWeight="SemiBold"/>
-                                    <TextBlock Text="PowerShell intégré, Ctrl+F5 pour exécuter le fichier ouvert."
-                                               TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource SecondaryText}"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource WelcomeCard}" Tag="Settings" Click="WelcomeCard_Click">
-                                <StackPanel>
-                                    <TextBlock Text="Personnaliser Keyce'sCode" FontSize="14" FontWeight="SemiBold"/>
-                                    <TextBlock Text="Thème clair ou sombre, police, raccourcis, enregistrement automatique."
-                                               TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource SecondaryText}"/>
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
-                    </Grid>
-                </ScrollViewer>
+                            </DockPanel>
 
-                <!-- Membre 5 : la page Paramètres s'ouvre par-dessus l'éditeur -->
-                <Grid x:Name="SettingsHost" Visibility="Collapsed">
-                    <Grid.Resources>
-                        <ResourceDictionary Source="pack://application:,,,/KeycesCode.Settings;component/Themes/Controls.xaml"/>
-                    </Grid.Resources>
-                    <set:SettingsPage x:Name="SettingsEditor"/>
-                </Grid>
-            </Grid>
-        </Grid>
+                            <!-- Saisie pour le programme en cours (Console.ReadLine, input()...) -->
+                            <DockPanel x:Name="RunInputBar" DockPanel.Dock="Bottom" Margin="20,6,8,6" Visibility="Collapsed">
+                                <TextBlock Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="11" DockPanel.Dock="Left"
+                                           VerticalAlignment="Center" Margin="0,0,8,0"
+                                           Foreground="{DynamicResource TerminalCommand}"/>
+                                <Grid>
+                                    <TextBox x:Name="RunInput"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             Padding="0"
+                                             FontFamily="Cascadia Mono, Consolas, Courier New"
+                                             FontSize="13"
+                                             Foreground="{DynamicResource TerminalCommand}"
+                                             CaretBrush="{DynamicResource PrimaryText}"
+                                             PreviewKeyDown="RunInput_PreviewKeyDown"/>
+                                    <TextBlock Text="Le programme attend une saisie ? Tape ici puis Entrée"
+                                               IsHitTestVisible="False" VerticalAlignment="Center"
+                                               FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="13"
+                                               Foreground="{DynamicResource MutedText}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Text.IsEmpty, ElementName=RunInput}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                            </DockPanel>
 
-        <!-- Poignée pour redimensionner le panneau du bas (on la tire vers le haut ou le bas) -->
-        <GridSplitter Grid.Row="3" Height="5" VerticalAlignment="Top" HorizontalAlignment="Stretch"
-                      ResizeDirection="Rows" ResizeBehavior="PreviousAndCurrent"
-                      Background="Transparent" Panel.ZIndex="10"/>
-
-        <Border x:Name="BottomPanel" Grid.Row="3"
-                Background="{DynamicResource SidebarBackground}"
-                BorderBrush="{DynamicResource BorderBrush}"
-                BorderThickness="0,1,0,0">
-            <DockPanel Margin="10,4,10,6">
-                <!-- Barre du panneau : onglets à gauche, actions à droite (comme VS Code) -->
-                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                        <StackPanel x:Name="ShellLabel" Orientation="Horizontal" Margin="0,0,10,0"
-                                    VerticalAlignment="Center" ToolTip="Shell du terminal">
-                            <TextBlock Text="&#xE756;" FontFamily="Segoe MDL2 Assets" FontSize="13"
-                                       VerticalAlignment="Center" Margin="0,0,6,0"
-                                       Foreground="{DynamicResource SecondaryText}"/>
-                            <TextBlock Text="powershell" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource SecondaryText}"/>
-                        </StackPanel>
-                        <Button Style="{StaticResource ExplorerActionButton}" ToolTip="Redémarrer le terminal"
-                                Click="RestartTerminal_Click">
-                            <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="13"/>
-                        </Button>
-                        <Button Style="{StaticResource ExplorerActionButton}" ToolTip="Effacer"
-                                Click="ClearPanel_Click">
-                            <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="13"/>
-                        </Button>
-                        <Button x:Name="MaximizePanelButton" Style="{StaticResource ExplorerActionButton}"
-                                ToolTip="Agrandir le panneau" Click="MaximizePanel_Click">
-                            <TextBlock x:Name="MaximizePanelIcon" Text="&#xE740;" FontFamily="Segoe MDL2 Assets" FontSize="13"/>
-                        </Button>
-                        <Button Style="{StaticResource ExplorerActionButton}" ToolTip="Masquer le panneau (Ctrl+J)"
-                                Click="HidePanel_Click">
-                            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="13"/>
-                        </Button>
-                    </StackPanel>
-                <StackPanel x:Name="BottomPanelTabs"
-                            Orientation="Horizontal">
-                    <Button x:Name="ProblemsTab"
-                            Content="Problems"
-                            Style="{StaticResource BottomPanelTab}"
-                            Tag="Problems"
-                            Click="BottomPanelTab_Click"/>
-                    <Button x:Name="OutputTab"
-                            Content="Output"
-                            Style="{StaticResource BottomPanelTab}"
-                            Tag="Output"
-                            Click="BottomPanelTab_Click"/>
-                    <Button x:Name="DebugConsoleTab"
-                            Content="Debug Console"
-                            Style="{StaticResource BottomPanelTab}"
-                            Tag="Debug Console"
-                            Click="BottomPanelTab_Click"/>
-                    <Button x:Name="TerminalTab"
-                            Content="Terminal"
-                            Style="{StaticResource BottomPanelTab}"
-                            Tag="Terminal"
-                            Click="BottomPanelTab_Click"/>
-                </StackPanel>
-                </DockPanel>
-                <!-- Saisie pour le programme en cours (Console.ReadLine, input()...) -->
-                <DockPanel x:Name="RunInputBar" DockPanel.Dock="Bottom" Margin="4,6,0,0" Visibility="Collapsed">
-                    <TextBlock Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="11" DockPanel.Dock="Left"
-                               VerticalAlignment="Center" Margin="0,0,8,0"
-                               Foreground="{DynamicResource TerminalCommand}"/>
-                    <Grid>
-                        <TextBox x:Name="RunInput"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 Padding="0"
-                                 FontFamily="Cascadia Mono, Consolas, Courier New"
-                                 FontSize="13"
-                                 Foreground="{DynamicResource TerminalCommand}"
-                                 CaretBrush="{DynamicResource PrimaryText}"
-                                 PreviewKeyDown="RunInput_PreviewKeyDown"/>
-                        <TextBlock Text="Le programme attend une saisie ? Tape ici puis Entrée"
-                                   IsHitTestVisible="False" VerticalAlignment="Center"
-                                   FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="13"
-                                   Foreground="{DynamicResource MutedText}">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Text.IsEmpty, ElementName=RunInput}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </Grid>
-                </DockPanel>
-                <Grid>
-                    <TextBox x:Name="ProblemsContent"
-                             Text="No problems detected."
-                             IsReadOnly="True"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             Foreground="{DynamicResource SecondaryText}"
-                             FontFamily="Consolas"
-                             FontSize="12"
-                             Visibility="Collapsed"/>
-                    <RichTextBox x:Name="OutputContent"
-                                 IsReadOnly="True"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 FontFamily="Cascadia Mono, Consolas, Courier New"
-                                 FontSize="13"
-                                 VerticalScrollBarVisibility="Auto"
-                                 Visibility="Collapsed"/>
-                    <RichTextBox x:Name="DebugConsoleContent"
-                                 IsReadOnly="True"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 FontFamily="Cascadia Mono, Consolas, Courier New"
-                                 FontSize="13"
-                                 VerticalScrollBarVisibility="Auto"
-                                 Visibility="Collapsed"/>
-                    <!-- Terminal (Membre 4) : la sortie puis la ligne de commande, qui défilent ensemble -->
-                    <ScrollViewer x:Name="TerminalContent" VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled"
-                                  PreviewMouseLeftButtonUp="TerminalArea_MouseUp">
-                        <StackPanel>
-                            <RichTextBox x:Name="TerminalOutput"
+                            <Grid Margin="20,0,8,4">
+                                <TextBox x:Name="ProblemsContent"
+                                         Text="Aucun problème détecté dans l'espace de travail."
                                          IsReadOnly="True"
                                          Background="Transparent"
                                          BorderThickness="0"
-                                         Padding="0"
-                                         FontFamily="Cascadia Mono, Consolas, Courier New"
+                                         Foreground="{DynamicResource PrimaryText}"
                                          FontSize="13"
-                                         VerticalScrollBarVisibility="Disabled"/>
-                            <DockPanel Margin="4,0,0,0">
-                                <TextBlock x:Name="TerminalPrompt" Text="PS &gt; " DockPanel.Dock="Left"
-                                           VerticalAlignment="Center"
-                                           FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="13"
-                                           Foreground="{DynamicResource PrimaryText}"/>
-                                <TextBox x:Name="TerminalInput"
-                                         Background="Transparent"
-                                         BorderThickness="0"
-                                         Padding="0"
-                                         FontFamily="Cascadia Mono, Consolas, Courier New"
-                                         FontSize="13"
-                                         Foreground="{DynamicResource TerminalCommand}"
-                                         CaretBrush="{DynamicResource PrimaryText}"
-                                         PreviewKeyDown="TerminalInput_PreviewKeyDown"/>
-                            </DockPanel>
-                        </StackPanel>
-                    </ScrollViewer>
+                                         Visibility="Collapsed"/>
+                                <RichTextBox x:Name="OutputContent"
+                                             IsReadOnly="True"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             FontFamily="Cascadia Mono, Consolas, Courier New"
+                                             FontSize="13"
+                                             VerticalScrollBarVisibility="Auto"
+                                             IsUndoEnabled="False"
+                                             Visibility="Collapsed"/>
+                                <RichTextBox x:Name="DebugConsoleContent"
+                                             IsReadOnly="True"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             FontFamily="Cascadia Mono, Consolas, Courier New"
+                                             FontSize="13"
+                                             VerticalScrollBarVisibility="Auto"
+                                             IsUndoEnabled="False"
+                                             Visibility="Collapsed"/>
+                                <!-- Terminal (Membre 4) : la sortie puis la ligne de commande, qui défilent ensemble -->
+                                <ScrollViewer x:Name="TerminalContent" VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              PreviewMouseLeftButtonUp="TerminalArea_MouseUp">
+                                    <StackPanel>
+                                        <RichTextBox x:Name="TerminalOutput"
+                                                     IsReadOnly="True"
+                                                     Background="Transparent"
+                                                     BorderThickness="0"
+                                                     Padding="0"
+                                                     FontFamily="Cascadia Mono, Consolas, Courier New"
+                                                     FontSize="13"
+                                                     IsUndoEnabled="False"
+                                                     VerticalScrollBarVisibility="Disabled"/>
+                                        <DockPanel Margin="4,0,0,0">
+                                            <TextBlock x:Name="TerminalPrompt" Text="PS &gt; " DockPanel.Dock="Left"
+                                                       VerticalAlignment="Center"
+                                                       FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="13"
+                                                       Foreground="{DynamicResource PrimaryText}"/>
+                                            <TextBox x:Name="TerminalInput"
+                                                     Background="Transparent"
+                                                     BorderThickness="0"
+                                                     Padding="0"
+                                                     FontFamily="Cascadia Mono, Consolas, Courier New"
+                                                     FontSize="13"
+                                                     Foreground="{DynamicResource TerminalCommand}"
+                                                     CaretBrush="{DynamicResource PrimaryText}"
+                                                     PreviewKeyDown="TerminalInput_PreviewKeyDown"/>
+                                        </DockPanel>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Grid>
+                        </DockPanel>
+                    </Border>
                 </Grid>
-            </DockPanel>
-        </Border>
 
-        <Border Grid.Row="4" Background="{DynamicResource StatusBarBackground}"
-                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
-            <DockPanel Margin="10,0">
-                <DockPanel.Resources>
-                    <!-- Texte de la barre d'état : lisible sur le fond bleu -->
-                    <Style TargetType="TextBlock">
-                        <Setter Property="Foreground" Value="{DynamicResource StatusBarText}"/>
-                    </Style>
-                </DockPanel.Resources>
-                <TextBlock x:Name="BranchStatus"
-                           VerticalAlignment="Center" FontSize="10"
-                           Margin="0,0,14,0"/>
-                <TextBlock x:Name="StatusText" Text="Ready"
-                           VerticalAlignment="Center" FontSize="10"/>
-                <TextBlock Text="KEYCE CODE"
-                           HorizontalAlignment="Right"
-                           VerticalAlignment="Center"
-                           FontSize="10"/>
-            </DockPanel>
-        </Border>
-    </Grid>
+                <!-- Chat de l'assistant IA à droite (comme le « Chat » de VS Code), sur toute la hauteur -->
+                <GridSplitter Grid.Column="4"
+                              Width="4"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch"
+                              ResizeDirection="Columns"
+                              ResizeBehavior="PreviousAndNext"
+                              Background="{DynamicResource PanelBorder}"
+                              Focusable="False"
+                              ShowsPreview="False"/>
+                <Border x:Name="ChatHost" Grid.Column="5" Visibility="Collapsed"
+                        Background="{DynamicResource SidebarBackground}">
+                    <Border.Resources>
+                        <ResourceDictionary Source="pack://application:,,,/KeycesCode.Settings;component/Themes/Controls.xaml"/>
+                    </Border.Resources>
+                    <ai:AssistantPanel x:Name="AssistantView"/>
+                </Border>
+            </Grid>
+
+            <!-- ===================== Barre d'état bleue ===================== -->
+            <Border Grid.Row="2" Background="{DynamicResource StatusBarBackground}">
+                <DockPanel>
+                    <DockPanel.Resources>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{DynamicResource StatusBarText}"/>
+                            <Setter Property="FontSize" Value="12"/>
+                            <Setter Property="VerticalAlignment" Value="Center"/>
+                        </Style>
+                    </DockPanel.Resources>
+
+                    <!-- Gauche : logo vert, branche Git, erreurs / avertissements, message -->
+                    <Button DockPanel.Dock="Left" Style="{StaticResource StatusBarItem}" Padding="9,0"
+                            Background="{DynamicResource StatusBarRemote}" ToolTip="Keyce'sCode"
+                            Click="About_Click">
+                        <TextBlock Text="&#xE943;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
+                    </Button>
+                    <Button DockPanel.Dock="Left" Style="{StaticResource StatusBarItem}" Margin="4,0,0,0"
+                            ToolTip="Contrôle de code source" Click="BranchStatus_Click">
+                        <TextBlock x:Name="BranchStatus" Text=""/>
+                    </Button>
+                    <Button DockPanel.Dock="Left" Style="{StaticResource StatusBarItem}"
+                            ToolTip="Problèmes" Click="ProblemsStatus_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xEA39;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,4,0"/>
+                            <TextBlock Text="0" Margin="0,0,8,0"/>
+                            <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,4,0"/>
+                            <TextBlock Text="0"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Droite : position du curseur, indentation, encodage, fin de ligne, langage, chat, notifications -->
+                    <Button DockPanel.Dock="Right" Style="{StaticResource StatusBarItem}" Margin="0,0,6,0"
+                            ToolTip="Notifications">
+                        <TextBlock Text="&#xEA8F;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+                    </Button>
+                    <Button DockPanel.Dock="Right" Style="{StaticResource StatusBarItem}"
+                            ToolTip="Ouvrir / fermer le chat Gemini (Ctrl+Shift+I)" Click="ChatStatus_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE945;" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,5,0"/>
+                            <TextBlock Text="Gemini"/>
+                        </StackPanel>
+                    </Button>
+                    <StackPanel x:Name="EditorStatus" DockPanel.Dock="Right" Orientation="Horizontal"
+                                Visibility="Collapsed">
+                        <Button Style="{StaticResource StatusBarItem}" ToolTip="Aller à la ligne">
+                            <TextBlock x:Name="CursorStatus" Text="Ln 1, Col 1"/>
+                        </Button>
+                        <Button Style="{StaticResource StatusBarItem}" ToolTip="Indentation">
+                            <TextBlock x:Name="IndentStatus" Text="Spaces: 4"/>
+                        </Button>
+                        <Button Style="{StaticResource StatusBarItem}" ToolTip="Encodage">
+                            <TextBlock Text="UTF-8"/>
+                        </Button>
+                        <Button Style="{StaticResource StatusBarItem}" ToolTip="Fin de ligne">
+                            <TextBlock x:Name="EolStatus" Text="CRLF"/>
+                        </Button>
+                        <Button Style="{StaticResource StatusBarItem}" ToolTip="Langage du fichier">
+                            <TextBlock x:Name="LanguageStatus" Text="Plain Text"/>
+                        </Button>
+                    </StackPanel>
+
+                    <TextBlock x:Name="StatusText" Text="Prêt" Margin="8,0" TextTrimming="CharacterEllipsis"/>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Border>
 </Window>

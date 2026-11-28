@@ -9,6 +9,9 @@ namespace KeycesCode.Execution.Interfaces
     {
         bool IsSessionActive { get; }
         string CurrentWorkingDirectory { get; }
+
+        // « powershell » ou « cmd » : pris en compte au prochain démarrage de la session
+        string Shell { get; set; }
         event EventHandler<TerminalOutputEventArgs>? OutputReceived;
 
         Task StartSessionAsync(string workingDirectory, CancellationToken cancellationToken = default);

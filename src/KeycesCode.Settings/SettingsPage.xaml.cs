@@ -41,6 +41,8 @@ public partial class SettingsPage : UserControl
         AutoSaveCheck.IsChecked = s.AutoSave;
         AutoSaveDelayInput.Text = s.AutoSaveDelaySeconds.ToString(CultureInfo.CurrentCulture);
         AssistantModelInput.Text = s.AssistantModel;
+        GeminiKeyInput.Password = s.GeminiApiKey;
+        GeminiKeyState.Text = s.GeminiApiKey.Length > 0 ? "✓ Clé enregistrée" : "Aucune clé";
         _loading = false;
     }
 
@@ -112,10 +114,25 @@ public partial class SettingsPage : UserControl
         await SaveAsync(s => s with { AssistantModel = value });
     }
 
+    private async void GeminiKey_LostFocus(object sender, RoutedEventArgs e)
+    {
+        var key = GeminiKeyInput.Password.Trim();
+        if (key == _settings?.Current.GeminiApiKey) return;
+        await SaveAsync(s => s with { GeminiApiKey = key });
+        GeminiKeyState.Text = key.Length > 0 ? "✓ Clé enregistrée" : "Aucune clé";
+    }
+
+    private void Link_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+    {
+        System.Diagnostics.Process.Start(
+            new System.Diagnostics.ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
+        e.Handled = true;
+    }
+
     // Entrée dans un champ = valider (on passe au champ suivant, ce qui déclenche LostFocus)
     private void Field_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter && sender is TextBox box)
+        if (e.Key == Key.Enter && sender is Control box)   // TextBox ou PasswordBox
         {
             e.Handled = true;
             box.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));

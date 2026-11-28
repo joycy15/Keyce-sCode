@@ -3,32 +3,52 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- Thème clair : blanc doux (pas éclatant), texte noir, accents bleus.
-         Mêmes clés que Colors.xaml (thème sombre). -->
+         Colors.xaml et Colors.Light.xaml doivent avoir exactement les mêmes clés. -->
+
     <SolidColorBrush x:Key="AppBackground" Color="#EBEBEB"/>
-    <SolidColorBrush x:Key="TitleBarBackground" Color="#E5E5E5"/>
-    <SolidColorBrush x:Key="MenuBackground" Color="#E5E5E5"/>
+    <SolidColorBrush x:Key="TitleBarBackground" Color="#DDDDDD"/>
+    <SolidColorBrush x:Key="TitleBarText" Color="#333333"/>
+    <SolidColorBrush x:Key="CaptionHover" Color="#C8C8C8"/>
+    <SolidColorBrush x:Key="MenuBackground" Color="#DDDDDD"/>
+    <SolidColorBrush x:Key="ActivityBarBackground" Color="#E0E0E0"/>
+    <SolidColorBrush x:Key="ActivityBarForeground" Color="#1F1F1F"/>
+    <SolidColorBrush x:Key="ActivityBarInactive" Color="#7A7A7A"/>
+    <SolidColorBrush x:Key="ActivityBarIndicator" Color="#0078D4"/>
     <SolidColorBrush x:Key="SidebarBackground" Color="#EBEBEB"/>
-    <SolidColorBrush x:Key="PanelBackground" Color="#EBEBEB"/>
+    <SolidColorBrush x:Key="PanelBackground" Color="#F3F3F3"/>
+    <SolidColorBrush x:Key="PanelBorder" Color="#D4D4D4"/>
+    <SolidColorBrush x:Key="PanelTabActive" Color="#1F1F1F"/>
+    <SolidColorBrush x:Key="PanelTabText" Color="#6F6F6F"/>
     <SolidColorBrush x:Key="EditorBackground" Color="#F3F3F3"/>
-    <SolidColorBrush x:Key="TabBackground" Color="#E5E5E5"/>
+    <SolidColorBrush x:Key="CurrentLineBorder" Color="#E2E2E2"/>
+    <SolidColorBrush x:Key="ActiveLineNumber" Color="#1F1F1F"/>
+    <SolidColorBrush x:Key="BreadcrumbText" Color="#6F6F6F"/>
+    <SolidColorBrush x:Key="TabBarBackground" Color="#E5E5E5"/>
+    <SolidColorBrush x:Key="TabBackground" Color="#E0E0E0"/>
+    <SolidColorBrush x:Key="TabActiveBackground" Color="#F3F3F3"/>
+    <SolidColorBrush x:Key="TabActiveText" Color="#1F1F1F"/>
+    <SolidColorBrush x:Key="TabInactiveText" Color="#6F6F6F"/>
+    <SolidColorBrush x:Key="ToolbarHover" Color="#D3D3D3"/>
     <SolidColorBrush x:Key="HoverBackground" Color="#DCDCDC"/>
-    <SolidColorBrush x:Key="SelectedBackground" Color="#D0DFF0"/>
+    <SolidColorBrush x:Key="SelectedBackground" Color="#D6D6D6"/>
+    <SolidColorBrush x:Key="FocusedSelection" Color="#CCE4F7"/>
+    <SolidColorBrush x:Key="FocusBorder" Color="#0078D4"/>
     <SolidColorBrush x:Key="BorderBrush" Color="#D4D4D4"/>
     <SolidColorBrush x:Key="StrongBorderBrush" Color="#BDBDBD"/>
-    <SolidColorBrush x:Key="StatusBarBackground" Color="#0078D4"/>
+    <SolidColorBrush x:Key="StatusBarBackground" Color="#007ACC"/>
     <SolidColorBrush x:Key="StatusBarText" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="StatusBarHover" Color="#1F8AD2"/>
+    <SolidColorBrush x:Key="StatusBarRemote" Color="#16825D"/>
     <SolidColorBrush x:Key="InputBackground" Color="#F5F5F5"/>
     <SolidColorBrush x:Key="TextSelection" Color="#ADD6FF"/>
     <SolidColorBrush x:Key="ButtonBackground" Color="#0078D4"/>
     <SolidColorBrush x:Key="ButtonText" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="WelcomeTitle" Color="#0078D4"/>
     <SolidColorBrush x:Key="LogoText" Color="White"/>
-    <SolidColorBrush x:Key="FolderIcon" Color="#C09553"/>
-
+    <SolidColorBrush x:Key="FolderIcon" Color="#424242"/>
     <SolidColorBrush x:Key="PrimaryText" Color="#1F1F1F"/>
     <SolidColorBrush x:Key="SecondaryText" Color="#555555"/>
     <SolidColorBrush x:Key="MutedText" Color="#7A7A7A"/>
-
     <SolidColorBrush x:Key="LinkText" Color="#005FB8"/>
     <SolidColorBrush x:Key="MenuPopupBackground" Color="#F3F3F3"/>
     <SolidColorBrush x:Key="MenuHighlight" Color="#CCE4F7"/>
@@ -38,5 +58,6 @@
     <SolidColorBrush x:Key="AccentBrush" Color="#0078D4"/>
     <SolidColorBrush x:Key="SuccessBrush" Color="#388A34"/>
     <SolidColorBrush x:Key="ErrorBrush" Color="#D32F2F"/>
+    <SolidColorBrush x:Key="WarningBrush" Color="#BF8803"/>
 
 </ResourceDictionary>

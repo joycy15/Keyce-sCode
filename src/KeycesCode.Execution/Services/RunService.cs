@@ -66,6 +66,11 @@ namespace KeycesCode.Execution.Services
             };
 
             startInfo.Environment["PYTHONIOENCODING"] = "utf-8";   // Python écrit en UTF-8
+            startInfo.Environment["PYTHONUNBUFFERED"] = "1";       // input("...") s'affiche tout de suite
+            // .NET : pas de message de bienvenue ni de télémétrie (démarrage plus rapide)
+            startInfo.Environment["DOTNET_NOLOGO"] = "1";
+            startInfo.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
+            startInfo.Environment["DOTNET_SKIP_FIRST_TIME_EXPERIENCE"] = "1";
 
             if (request.EnvironmentVariables != null)
             {
@@ -341,12 +346,26 @@ namespace KeycesCode.Execution.Services
                     string.IsNullOrEmpty(toolExe) ? "dotnet" : toolExe,
                     isDebug ? $"run --configuration Debug --project \"{fullPath}\"{extraArgs}" : $"run --project \"{fullPath}\"{extraArgs}"
                 ),
+                // Fichier .cs dans un dossier qui a son projet (.csproj) : on lance le projet ;
+                // sinon « dotnet run fichier.cs » (.NET 10). Le 2e lancement sans modification est bien plus rapide.
+                ".cs" when FindProject(fullPath) is { } project => (
+                    string.IsNullOrEmpty(toolExe) ? "dotnet" : toolExe,
+                    $"run --project \"{project}\"{extraArgs}"
+                ),
                 ".cs" => (
                     string.IsNullOrEmpty(toolExe) ? "dotnet" : toolExe,
                     $"run \"{fullPath}\"{extraArgs}"
                 ),
                 _ => (fullPath, request.Arguments.Trim())
             };
+        }
+
+        private static string? FindProject(string csFile)
+        {
+            string? folder = Path.GetDirectoryName(csFile);
+            if (folder is null) return null;
+            string[] projects = Directory.GetFiles(folder, "*.csproj");
+            return projects.Length == 1 ? projects[0] : null;
         }
 
         private void EmitOutput(string line, OutputStreamType streamType)

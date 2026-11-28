@@ -37,8 +37,18 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Window_StateChanged(this, EventArgs.Empty);
+        Loaded += (_, _) =>
+        {
+            // Une fois la fenêtre affichée : trait blanc sur l'icône active, onglet du bas souligné
+            ShowPanel(_activePanel);
+            var activeTab = BottomPanelTabs.Children.OfType<Button>()
+                .FirstOrDefault(b => ReferenceEquals(b.Style, FindResource("BottomPanelTabActive")));
+            BottomPanelTab_Click(activeTab ?? TerminalTab, new RoutedEventArgs());
+        };
         LoadExplorer();          // au démarrage : aucun dossier, l'explorateur propose d'en ouvrir un
         InitializeExplorerMenu(); // clic droit : renommer, supprimer... (MainWindow.FileActions.cs)
+        ExplorerTree.PreviewMouseLeftButtonUp += ExplorerTree_ItemClicked;   // un seul clic, comme VS Code
         InitializeMember5();
         InitializeExecution();
         RefreshRecentList();
@@ -62,7 +72,7 @@ public partial class MainWindow : Window
         _ = _terminal.ChangeDirectoryAsync(path);
         _terminalCwd = path;
         UpdatePrompt();
-        Title = $"{Path.GetFileName(path.TrimEnd('\\', '/'))} - Keyce'sCode";
+        UpdateWindowTitle();
         StatusText.Text = $"Workspace: {path}";
 
         var recent = new List<string> { path };
@@ -77,7 +87,7 @@ public partial class MainWindow : Window
         _workspacePath = "";
         LoadExplorer();
         SourceControlPanel.CloseFolder();
-        Title = "Keyce'sCode";
+        UpdateWindowTitle();
         StatusText.Text = "Aucun dossier ouvert";
     }
 
@@ -184,9 +194,18 @@ public partial class MainWindow : Window
         _debugWriter.WriteLine("Console de débogage prête. F5 lance le débogage du fichier ouvert.", "MutedText");
 
         // Les services envoient leurs lignes depuis d'autres threads : on repasse par le Dispatcher
-        _terminal.OutputReceived += (_, e) => Dispatcher.InvokeAsync(() => WriteTerminalLine(e.Line, e.StreamType));
-        _runner.OutputReceived += (_, e) => Dispatcher.InvokeAsync(() => WriteRunLine(e.Line, e.StreamType));
-        _runner.ProcessExited += (_, _) => Dispatcher.InvokeAsync(UpdateRunInputBar);
+        // Priorité « Background » : l'écriture et les clics restent fluides même si un programme affiche beaucoup
+        _terminal.OutputReceived += (_, e) =>
+            Dispatcher.InvokeAsync(() => WriteTerminalLine(e.Line, e.StreamType), DispatcherPriority.Background);
+        _runner.OutputReceived += (_, e) =>
+            Dispatcher.InvokeAsync(() => WriteRunLine(e.Line, e.StreamType), DispatcherPriority.Background);
+        // Fin du programme : après ses dernières lignes (même priorité), on remet l'invite du terminal
+        _runner.ProcessExited += (_, _) => Dispatcher.InvokeAsync(() =>
+        {
+            _runInTerminal = false;
+            UpdateRunInputBar();
+            UpdatePrompt();
+        }, DispatcherPriority.Background);
 
         Closed += async (_, _) =>
         {
@@ -194,6 +213,8 @@ public partial class MainWindow : Window
             await _terminal.StopSessionAsync();
         };
 
+        _terminal.Shell = App.Settings.Current.TerminalShell;
+        UpdateShellLabel();
         _ = StartTerminalAsync(HasWorkspace
             ? _workspacePath
             : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
@@ -214,9 +235,51 @@ public partial class MainWindow : Window
         }
     }
 
+    // Le programme lancé avec Ctrl+F5 tourne dans le terminal (comme VS Code) : on y tape ses réponses
+    private bool _runInTerminal;
+
+    private bool IsCmdShell => string.Equals(_terminal.Shell, "cmd", StringComparison.OrdinalIgnoreCase);
+
+    // Invite : « PS D:\dossier> » (PowerShell) ou « D:\dossier> » (cmd)
+    private string ShellPrompt(string folder) => IsCmdShell ? $"{folder}>" : $"PS {folder}> ";
+
+    // ----- Choix du shell : PowerShell ou Invite de commandes (cmd) -----
+
+    private void UpdateShellLabel() => ShellName.Text = IsCmdShell ? "cmd" : "powershell";
+
+    private void ShellButton_Click(object sender, RoutedEventArgs e)
+    {
+        var menu = new ContextMenu { PlacementTarget = ShellButton, Placement = PlacementMode.Bottom };
+        menu.Items.Add(ShellMenuItem("PowerShell", "powershell"));
+        menu.Items.Add(ShellMenuItem("Invite de commandes (cmd)", "cmd"));
+        menu.IsOpen = true;
+    }
+
+    private MenuItem ShellMenuItem(string header, string shell)
+    {
+        bool current = string.Equals(_terminal.Shell, shell, StringComparison.OrdinalIgnoreCase);
+        var item = new MenuItem { Header = header, InputGestureText = current ? "✓" : "" };
+        item.Click += async (_, _) => await SwitchShellAsync(shell);
+        return item;
+    }
+
+    private async Task SwitchShellAsync(string shell)
+    {
+        if (string.Equals(_terminal.Shell, shell, StringComparison.OrdinalIgnoreCase)) return;
+
+        string folder = _terminalCwd.Length > 0 ? _terminalCwd : _workspacePath;
+        await _terminal.StopSessionAsync();
+        _terminal.Shell = shell;
+        UpdateShellLabel();
+        ShowTerminal();
+        await StartTerminalAsync(folder);
+        await App.Settings.SaveAsync(App.Settings.Current with { TerminalShell = shell });
+    }
+
     private void UpdatePrompt()
     {
-        TerminalPrompt.Text = $"PS {_terminalCwd}> ";
+        // Pendant qu'un programme tourne dans le terminal, pas d'invite : on écrit directement au programme
+        TerminalPrompt.Text = _runInTerminal && _runner.IsRunning ? "" : ShellPrompt(_terminalCwd);
         TerminalPrompt.ToolTip = _terminalCwd;
     }
 
@@ -250,7 +313,7 @@ public partial class MainWindow : Window
         var prompt = PromptLine.Match(line);
         if (prompt.Success)
         {
-            _terminalWriter.Write($"PS {prompt.Groups["path"].Value}> ", "PrimaryText");
+            _terminalWriter.Write(ShellPrompt(prompt.Groups["path"].Value), "PrimaryText");
             _terminalWriter.WriteLine(prompt.Groups["command"].Value, "TerminalCommand");
             return;
         }
@@ -344,6 +407,21 @@ public partial class MainWindow : Window
     {
         TerminalInput.Clear();
 
+        // Un programme (Ctrl+F5) attend une saisie : la ligne lui est envoyée
+        if (_runInTerminal && _runner.IsRunning)
+        {
+            _terminalWriter.WriteLine(command, "TerminalCommand");
+            try
+            {
+                await _runner.SendInputAsync(command);
+            }
+            catch (Exception ex)
+            {
+                _terminalWriter.WriteLine(ex.Message, "ErrorBrush");
+            }
+            return;
+        }
+
         if (!string.IsNullOrWhiteSpace(command) &&
             (_history.Count == 0 || _history[^1] != command))
         {
@@ -360,18 +438,29 @@ public partial class MainWindow : Window
 
         if (string.IsNullOrWhiteSpace(command))
         {
-            _terminalWriter.WriteLine($"PS {_terminalCwd}> ", "PrimaryText");
+            _terminalWriter.WriteLine(ShellPrompt(_terminalCwd), "PrimaryText");
             return;
         }
 
         try
         {
+            // cmd (lancé avec /Q) ne répète pas la commande : on l'affiche nous-mêmes, comme une console
+            if (IsCmdShell)
+            {
+                _terminalWriter.Write(ShellPrompt(_terminalCwd), "PrimaryText");
+                _terminalWriter.WriteLine(command, "TerminalCommand");
+            }
+
             await _terminal.SendInputAsync(command);
 
             // Seulement après un changement de dossier : on demande discrètement le nouveau dossier.
             // (Jamais après un programme : la ligne technique serait lue par le programme comme une saisie.)
             if (ChangesDirectory(command))
-                await _terminal.SendInputAsync($"Write-Output ('{CwdMarker}' + (Get-Location).Path)");
+            {
+                await _terminal.SendInputAsync(IsCmdShell
+                    ? $"echo {CwdMarker}%CD%"
+                    : $"Write-Output ('{CwdMarker}' + (Get-Location).Path)");
+            }
         }
         catch (Exception ex)
         {
@@ -446,6 +535,14 @@ public partial class MainWindow : Window
     // PowerShell ne reçoit pas Ctrl+C quand il est redirigé : on relance donc une session propre
     private async Task InterruptTerminalAsync()
     {
+        // Ctrl+C pendant un programme lancé avec Ctrl+F5 : on arrête le programme, pas le terminal
+        if (_runInTerminal && _runner.IsRunning)
+        {
+            _terminalWriter.WriteLine("^C", "ErrorBrush");
+            await _runner.StopCurrentProcessAsync();
+            return;
+        }
+
         _terminalWriter.WriteLine("^C", "ErrorBrush");
         string directory = _terminalCwd;
         await _terminal.StopSessionAsync();
@@ -576,9 +673,12 @@ public partial class MainWindow : Window
 
         if (document.IsDirty) SaveDocument(document);
 
-        _runWriter = debug ? _debugWriter : _outputWriter;
-        _runWriter.Clear();
-        ShowBottomTab(debug ? DebugConsoleTab : OutputTab);
+        // Exécution (Ctrl+F5) : dans le TERMINAL, comme VS Code — on y voit la sortie et on y tape les réponses.
+        // Débogage (F5) : dans DEBUG CONSOLE.
+        _runInTerminal = !debug;
+        _runWriter = debug ? _debugWriter : _terminalWriter;
+        if (debug) _runWriter.Clear();
+        ShowBottomTab(debug ? DebugConsoleTab : TerminalTab);
         StatusText.Text = debug ? $"Débogage de {Path.GetFileName(path)}..." : $"Exécution de {Path.GetFileName(path)}...";
 
         try
@@ -586,10 +686,12 @@ public partial class MainWindow : Window
             var request = new ExecutionRequest(path, Path.GetDirectoryName(path));
             var running = debug ? _runner.StartDebugAsync(request) : (Task)_runner.RunAsync(request);
 
-            // Pendant l'exécution : zone de saisie pour répondre au programme
-            await Task.Delay(300);
+            // Pendant l'exécution : on répond au programme dans le terminal (ou dans la barre de saisie en débogage)
+            await Task.Delay(150);
             UpdateRunInputBar();
-            if (RunInputBar.Visibility == Visibility.Visible) RunInput.Focus();
+            UpdatePrompt();
+            if (debug && RunInputBar.Visibility == Visibility.Visible) RunInput.Focus();
+            else if (!debug) TerminalInput.Focus();
 
             await running;
             StatusText.Text = debug ? "Débogage démarré" : "Exécution terminée";
@@ -603,6 +705,7 @@ public partial class MainWindow : Window
         finally
         {
             UpdateRunInputBar();
+            UpdatePrompt();
         }
     }
 
@@ -620,6 +723,7 @@ public partial class MainWindow : Window
 
         AssistantView.Initialize(App.Assistant, () => App.Settings.Current.AssistantModel);
         App.Settings.SettingsChanged += (_, _) => _ = AssistantView.CheckStatusAsync();
+        InitializeAssistantLink();   // l'assistant voit le fichier ouvert et écrit dans l'éditeur (MainWindow.Assistant.cs)
 
         RegisterCommands();
 
@@ -657,13 +761,7 @@ public partial class MainWindow : Window
     // Quand on change de thème : on recolore ce qui a été créé par le code
     private void RefreshThemeColors()
     {
-        ShowPanel(_activePanel);
-
-        foreach (Button tab in BottomPanelTabs.Children.OfType<Button>())
-        {
-            bool active = tab.Tag?.ToString()?.StartsWith("Active:", StringComparison.Ordinal) == true;
-            tab.Foreground = (Brush)FindResource(active ? "AccentBrush" : "SecondaryText");
-        }
+        if (IsSidebarVisible) ShowPanel(_activePanel);
 
         foreach (var document in _documents.Values)
         {
@@ -700,6 +798,10 @@ public partial class MainWindow : Window
             ShowTerminal);
         keys.Register(new CommandInfo("view.panel", "Afficher / masquer le panneau du bas", "Ctrl+J"),
             TogglePanel);
+        keys.Register(new CommandInfo("view.sidebar", "Afficher / masquer la barre latérale", "Ctrl+B"),
+            ToggleSidebar);
+        keys.Register(new CommandInfo("file.close", "Fermer l'éditeur", "Ctrl+W"),
+            CloseCurrentEditor);
         keys.Register(new CommandInfo("git.refresh", "Git : actualiser", "Ctrl+Shift+R"),
             async () => await SourceControlPanel.RefreshCommandAsync());
         keys.Register(new CommandInfo("git.pull", "Git : pull", "Ctrl+Alt+L"),
@@ -726,151 +828,271 @@ public partial class MainWindow : Window
     private void SourceControlPanel_BranchChanged(object? sender, string branch) =>
         BranchStatus.Text = string.IsNullOrEmpty(branch) ? "" : $"⎇ {branch}";
 
-    // Affiche un panneau de la barre latérale comme si on avait cliqué sur son icône
+    // Affiche un panneau de la barre latérale (Explorateur, Recherche, Git, Assistant)
     private void ShowPanel(string panelName)
     {
         var button = ActivityBar.Children.OfType<Button>()
             .FirstOrDefault(b => b.Tag as string == panelName);
-        if (button is not null)
-            ActivityButton_Click(button, new RoutedEventArgs());
+        if (button is not null) SelectPanel(button);
     }
 
+    // Clic sur une icône de la barre d'activité : comme VS Code, recliquer sur l'icône active masque la barre latérale
     private void ActivityButton_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button button || button.Tag is not string panelName)
+        if (sender is not Button { Tag: string panelName } button) return;
+
+        // L'assistant s'ouvre à droite (comme le Chat de VS Code) : l'icône ouvre ou ferme le chat
+        if (panelName == "Assistant")
         {
+            SetChatVisible(!IsChatVisible);
             return;
         }
 
+        if (panelName == _activePanel && IsSidebarVisible)
+        {
+            SetSidebarVisible(false);
+            SetActivityIndicator(button, false);
+            return;
+        }
+
+        SelectPanel(button);
+    }
+
+    private void SelectPanel(Button button)
+    {
+        if (button.Tag is not string panelName) return;
+
+        if (panelName == "Assistant")
+        {
+            SetChatVisible(true);
+            return;
+        }
+
+        SetSidebarVisible(true);
         ExplorerPanel.Visibility = panelName == "Explorer" ? Visibility.Visible : Visibility.Collapsed;
         SearchPanel.Visibility = panelName == "Search" ? Visibility.Visible : Visibility.Collapsed;
         SourceControlPanel.Visibility = panelName == "Source Control" ? Visibility.Visible : Visibility.Collapsed;
-        AssistantView.Visibility = panelName == "Assistant" ? Visibility.Visible : Visibility.Collapsed;
 
         foreach (Button activityButton in ActivityBar.Children.OfType<Button>())
         {
-            activityButton.Foreground = (Brush)FindResource("SecondaryText");
+            if (activityButton.Tag as string == "Assistant") continue;   // suit le chat, pas la barre latérale
+            SetActivityIndicator(activityButton, ReferenceEquals(activityButton, button));
         }
 
-        button.Foreground = (Brush)FindResource("AccentBrush");
         _activePanel = panelName;
 
         if (panelName == "Source Control")
         {
             _ = SourceControlPanel.RefreshCommandAsync();
         }
+        else if (panelName == "Search")
+        {
+            SearchBox.Focus();
+        }
     }
+
+    // Icône active : blanche avec un trait à gauche ; les autres : grises
+    private void SetActivityIndicator(Button button, bool active)
+    {
+        button.Style = (Style)FindResource(active ? "ActivityButtonActive" : "ActivityButton");
+        button.ApplyTemplate();
+        if (button.Template?.FindName("ActiveIndicator", button) is UIElement indicator)
+            indicator.Opacity = active ? 1 : 0;
+    }
+
+    // ----- Barre latérale : afficher / masquer (Ctrl+B) -----
+
+    private GridLength _sidebarWidth = new(280);
+
+    private bool IsSidebarVisible => SidebarHost.Visibility == Visibility.Visible;
+
+    private void SetSidebarVisible(bool visible)
+    {
+        if (visible == IsSidebarVisible) return;
+
+        if (visible)
+        {
+            SidebarHost.Visibility = Visibility.Visible;
+            SidebarColumn.MinWidth = 170;
+            SidebarColumn.Width = _sidebarWidth;
+            SplitterColumn.Width = new GridLength(4);
+        }
+        else
+        {
+            _sidebarWidth = SidebarColumn.Width;
+            SidebarHost.Visibility = Visibility.Collapsed;
+            SidebarColumn.MinWidth = 0;
+            SidebarColumn.Width = new GridLength(0);
+            SplitterColumn.Width = new GridLength(0);
+        }
+    }
+
+    private void ToggleSidebar()
+    {
+        if (IsSidebarVisible)
+        {
+            SetSidebarVisible(false);
+            foreach (Button activityButton in ActivityBar.Children.OfType<Button>())
+            {
+                if (activityButton.Tag as string != "Assistant") SetActivityIndicator(activityButton, false);
+            }
+        }
+        else
+        {
+            ShowPanel(_activePanel);
+        }
+    }
+
+    private void ToggleSidebar_Click(object sender, RoutedEventArgs e) => ToggleSidebar();
+
+    // ----- Chat de l'assistant IA, à droite -----
+
+    private GridLength _chatWidth = new(380);
+
+    private bool IsChatVisible => ChatHost.Visibility == Visibility.Visible;
+
+    private void SetChatVisible(bool visible)
+    {
+        if (visible != IsChatVisible)
+        {
+            if (visible)
+            {
+                ChatHost.Visibility = Visibility.Visible;
+                ChatColumn.MinWidth = 260;
+                ChatColumn.Width = _chatWidth;
+                ChatSplitterColumn.Width = new GridLength(4);
+            }
+            else
+            {
+                _chatWidth = ChatColumn.Width;
+                ChatHost.Visibility = Visibility.Collapsed;
+                ChatColumn.MinWidth = 0;
+                ChatColumn.Width = new GridLength(0);
+                ChatSplitterColumn.Width = new GridLength(0);
+            }
+        }
+
+        var assistantButton = ActivityBar.Children.OfType<Button>().FirstOrDefault(b => b.Tag as string == "Assistant");
+        if (assistantButton is not null) SetActivityIndicator(assistantButton, visible);
+
+        if (visible)
+        {
+            AssistantView.RefreshContext();
+            AssistantView.FocusInput();
+        }
+    }
+
+    private void ChatStatus_Click(object sender, RoutedEventArgs e) => SetChatVisible(!IsChatVisible);
 
     private void LoadExplorer()
     {
         // Aucun dossier : on affiche « Aucun dossier ouvert » avec le bouton Ouvrir un dossier
         NoFolderPanel.Visibility = HasWorkspace ? Visibility.Collapsed : Visibility.Visible;
-        WorkspaceLabel.Visibility = HasWorkspace ? Visibility.Visible : Visibility.Collapsed;
         ExplorerTree.Visibility = HasWorkspace ? Visibility.Visible : Visibility.Collapsed;
         ExplorerTree.Items.Clear();
         if (!HasWorkspace) return;
 
-        WorkspaceLabel.Text = Path.GetFileName(_workspacePath.TrimEnd(
-            Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-        if (string.IsNullOrEmpty(WorkspaceLabel.Text))
-        {
-            WorkspaceLabel.Text = _workspacePath;
-        }
-
-        WorkspaceLabel.ToolTip = _workspacePath;
-        ExplorerTree.Items.Clear();
-
-        var root = CreateDirectoryNode(_workspacePath);
+        // Le dossier ouvert est la première ligne, en majuscules (comme « CREATE-REACT-APP » dans VS Code)
+        var root = CreateDirectoryNode(_workspacePath, isRoot: true);
         root.IsExpanded = true;
+        root.ToolTip = _workspacePath;
         ExplorerTree.Items.Add(root);
         PopulateDirectoryNode(root);
     }
 
-    private static DockPanel CreateExplorerHeader(string name, bool isDirectory, string? extension)
+    private static DockPanel CreateExplorerHeader(string name, bool isDirectory, string? extension, bool isRoot = false)
     {
-        var header = new DockPanel
-        {
-            LastChildFill = true,
-            MinHeight = 20
-        };
+        var header = new DockPanel { LastChildFill = true, MinHeight = 20 };
 
-        var icon = new TextBlock
+        // Dossiers : seulement le chevron (dans le style de l'arbre) ; fichiers : icône colorée comme VS Code
+        if (!isDirectory)
         {
-            Width = 24,
-            Margin = new Thickness(0, 0, 4, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-            TextAlignment = TextAlignment.Center,
-            FontFamily = new FontFamily("Segoe UI Symbol"),
-            FontSize = 11
-        };
-        icon.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
-
-        if (isDirectory)
-        {
-            // Icône de dossier (police Segoe MDL2 Assets, comme dans Windows)
-            icon.Text = "\uE8B7";
-            icon.FontFamily = new FontFamily("Segoe MDL2 Assets");
-            icon.FontSize = 13;
-            icon.SetResourceReference(TextBlock.ForegroundProperty, "FolderIcon");
-        }
-        else
-        {
-            (icon.Text, icon.Foreground) = GetFileIcon(extension);
+            var (glyph, color) = GetFileIcon(extension);
+            var icon = new TextBlock
+            {
+                Text = glyph,
+                Width = 20,
+                Margin = new Thickness(0, 0, 4, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextAlignment = TextAlignment.Center,
+                FontFamily = new FontFamily("Segoe UI"),
+                FontWeight = FontWeights.Bold,
+                FontSize = glyph.Length > 2 ? 8 : 10,
+                Foreground = color
+            };
+            DockPanel.SetDock(icon, Dock.Left);
+            header.Children.Add(icon);
         }
 
-        DockPanel.SetDock(icon, Dock.Left);
-        header.Children.Add(icon);
         var label = new TextBlock
         {
-            Text = name,
+            Text = isRoot ? name.ToUpperInvariant() : name,
             VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Margin = new Thickness(isDirectory ? 2 : 0, 0, 0, 0)
         };
+        if (isRoot)
+        {
+            label.FontWeight = FontWeights.Bold;
+            label.FontSize = 11;
+        }
         label.SetResourceReference(TextBlock.ForegroundProperty, "PrimaryText");
         header.Children.Add(label);
         return header;
+    }
+
+    // Les pinceaux sont créés une seule fois (plus rapide quand le dossier contient beaucoup de fichiers)
+    private static readonly Dictionary<string, Brush> IconBrushes = new();
+
+    private static Brush IconBrush(byte r, byte g, byte b)
+    {
+        string key = $"{r},{g},{b}";
+        if (!IconBrushes.TryGetValue(key, out Brush? brush))
+        {
+            brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+            brush.Freeze();
+            IconBrushes[key] = brush;
+        }
+        return brush;
     }
 
     private static (string Text, Brush Foreground) GetFileIcon(string? extension)
     {
         return extension switch
         {
-            ".cs" => ("C#", new SolidColorBrush(Color.FromRgb(103, 185, 107))),
-            ".xaml" => ("X", new SolidColorBrush(Color.FromRgb(86, 156, 214))),
-            ".xml" or ".axml" or ".csproj" or ".props" or ".targets" => ("X", new SolidColorBrush(Color.FromRgb(86, 156, 214))),
-            ".js" or ".jsx" => ("JS", new SolidColorBrush(Color.FromRgb(241, 196, 15))),
-            ".ts" or ".tsx" => ("TS", new SolidColorBrush(Color.FromRgb(49, 120, 198))),
-            ".json" => ("{}", new SolidColorBrush(Color.FromRgb(241, 196, 15))),
-            ".css" or ".scss" or ".less" => ("#", new SolidColorBrush(Color.FromRgb(86, 156, 214))),
-            ".html" or ".htm" => ("<>", new SolidColorBrush(Color.FromRgb(227, 76, 38))),
-            ".py" => ("PY", new SolidColorBrush(Color.FromRgb(53, 114, 165))),
-            ".md" or ".markdown" => ("M", new SolidColorBrush(Color.FromRgb(156, 220, 254))),
-            ".cpp" or ".cc" or ".cxx" or ".h" or ".hpp" => ("C+", new SolidColorBrush(Color.FromRgb(86, 156, 214))),
-            ".go" => ("GO", new SolidColorBrush(Color.FromRgb(78, 201, 176))),
-            ".rs" => ("RS", new SolidColorBrush(Color.FromRgb(206, 145, 120))),
-            ".php" => ("PHP", new SolidColorBrush(Color.FromRgb(136, 146, 191))),
-            ".java" => ("JV", new SolidColorBrush(Color.FromRgb(241, 101, 41))),
-            ".rb" => ("RB", new SolidColorBrush(Color.FromRgb(204, 52, 45))),
-            ".sh" or ".bash" or ".ps1" or ".bat" or ".cmd" => ("$", new SolidColorBrush(Color.FromRgb(137, 209, 133))),
-            ".sql" => ("DB", new SolidColorBrush(Color.FromRgb(206, 145, 120))),
-            ".yml" or ".yaml" or ".toml" or ".ini" => ("Y", new SolidColorBrush(Color.FromRgb(206, 145, 120))),
-            _ => ("·", new SolidColorBrush(Color.FromRgb(153, 153, 153)))
+            ".cs" => ("C#", IconBrush(103, 185, 107)),
+            ".xaml" => ("X", IconBrush(86, 156, 214)),
+            ".xml" or ".axml" or ".csproj" or ".props" or ".targets" => ("X", IconBrush(86, 156, 214)),
+            ".js" or ".jsx" => ("JS", IconBrush(241, 196, 15)),
+            ".ts" or ".tsx" => ("TS", IconBrush(49, 120, 198)),
+            ".json" => ("{}", IconBrush(241, 196, 15)),
+            ".css" or ".scss" or ".less" => ("#", IconBrush(86, 156, 214)),
+            ".html" or ".htm" => ("<>", IconBrush(227, 76, 38)),
+            ".py" => ("PY", IconBrush(53, 114, 165)),
+            ".md" or ".markdown" => ("M", IconBrush(156, 220, 254)),
+            ".cpp" or ".cc" or ".cxx" or ".h" or ".hpp" => ("C+", IconBrush(86, 156, 214)),
+            ".go" => ("GO", IconBrush(78, 201, 176)),
+            ".rs" => ("RS", IconBrush(206, 145, 120)),
+            ".php" => ("PHP", IconBrush(136, 146, 191)),
+            ".java" => ("JV", IconBrush(241, 101, 41)),
+            ".rb" => ("RB", IconBrush(204, 52, 45)),
+            ".sh" or ".bash" or ".ps1" or ".bat" or ".cmd" => ("$", IconBrush(137, 209, 133)),
+            ".sql" => ("DB", IconBrush(206, 145, 120)),
+            ".yml" or ".yaml" or ".toml" or ".ini" => ("Y", IconBrush(206, 145, 120)),
+            _ => ("·", IconBrush(153, 153, 153))
         };
     }
 
-    private static TreeViewItem CreateDirectoryNode(string path)
+    private static TreeViewItem CreateDirectoryNode(string path, bool isRoot = false)
     {
         string name = Path.GetFileName(path.TrimEnd(
             Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        if (string.IsNullOrEmpty(name)) name = path;
         var node = new TreeViewItem
         {
-            Header = CreateExplorerHeader(name, isDirectory: true, extension: null),
+            Header = CreateExplorerHeader(name, isDirectory: true, extension: null, isRoot),
             Tag = path
         };
-        if (string.IsNullOrEmpty(name))
-        {
-            node.Header = CreateExplorerHeader(path, isDirectory: true, extension: null);
-        }
 
         node.Expanded += DirectoryNode_Expanded;
         return node;
@@ -891,6 +1113,8 @@ public partial class MainWindow : Window
         }
     }
 
+    private static readonly HashSet<string> HiddenFolders = new(StringComparer.OrdinalIgnoreCase) { ".git", ".vs" };
+
     private static void PopulateDirectoryNode(TreeViewItem node)
     {
         if (node.Tag is not string path)
@@ -902,6 +1126,7 @@ public partial class MainWindow : Window
         try
         {
             foreach (string directory in Directory.EnumerateDirectories(path)
+                         .Where(d => !HiddenFolders.Contains(Path.GetFileName(d)))   // .git caché, comme VS Code
                          .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
             {
                 var directoryNode = CreateDirectoryNode(directory);
@@ -938,6 +1163,30 @@ public partial class MainWindow : Window
                 Header = "(Unable to read folder)",
                 IsEnabled = false
             });
+        }
+    }
+
+    // Un clic sur un fichier l'ouvre ; un clic sur un dossier l'ouvre ou le ferme (comme VS Code)
+    private void ExplorerTree_ItemClicked(object sender, MouseButtonEventArgs e)
+    {
+        DependencyObject? element = e.OriginalSource as DependencyObject;
+        while (element is not null and not TreeViewItem)
+        {
+            if (element is ToggleButton) return;   // clic sur le chevron : déjà géré par l'arbre
+            element = element is Visual or System.Windows.Media.Media3D.Visual3D
+                ? VisualTreeHelper.GetParent(element)
+                : LogicalTreeHelper.GetParent(element);
+        }
+
+        if (element is not TreeViewItem { Tag: string path } item) return;
+
+        if (File.Exists(path))
+        {
+            OpenDocument(path);
+        }
+        else if (Directory.Exists(path) && ExplorerTree.Items.IndexOf(item) < 0)
+        {
+            item.IsExpanded = !item.IsExpanded;   // le dossier racine reste toujours ouvert
         }
     }
 
@@ -1046,7 +1295,8 @@ public partial class MainWindow : Window
     private void CollapseFolders_Click(object sender, RoutedEventArgs e)
     {
         CollapseFolders(ExplorerTree);
-        StatusText.Text = "All folders collapsed.";
+        if (ExplorerTree.Items.Count > 0 && ExplorerTree.Items[0] is TreeViewItem root) root.IsExpanded = true;
+        StatusText.Text = "Dossiers réduits.";
     }
 
     private string GetTargetDirectory()
@@ -1211,7 +1461,16 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SearchFiles()
+    // Dossiers ignorés par la recherche (très gros et inutiles) : la recherche reste rapide
+    private static readonly HashSet<string> IgnoredFolders = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".git", ".vs", ".idea", "node_modules", "bin", "obj", "packages", "__pycache__", ".venv", "venv", "dist", "build"
+    };
+
+    private CancellationTokenSource? _searchCts;
+
+    // La recherche tourne en arrière-plan : la fenêtre ne se fige plus
+    private async void SearchFiles()
     {
         if (!HasWorkspace)
         {
@@ -1223,64 +1482,63 @@ public partial class MainWindow : Window
         SearchResults.Items.Clear();
         if (query.Length == 0)
         {
-            StatusText.Text = "Enter a file name to search.";
+            StatusText.Text = "Tape un nom de fichier à chercher.";
             return;
         }
 
-        int inaccessibleFolders = 0;
-        SearchDirectory(_workspacePath, query, inaccessibleFolders: ref inaccessibleFolders);
-        StatusText.Text = SearchResults.Items.Count == 0
-            ? $"No files matched \"{query}\"."
-            : $"{SearchResults.Items.Count} file(s) found.";
-        if (inaccessibleFolders > 0)
+        _searchCts?.Cancel();
+        var cts = _searchCts = new CancellationTokenSource();
+        string root = _workspacePath;
+        StatusText.Text = "Recherche...";
+
+        List<string> found;
+        try
         {
-            StatusText.Text += $" {inaccessibleFolders} folder(s) could not be searched.";
+            found = await Task.Run(() => FindFiles(root, query, cts.Token), cts.Token);
         }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (cts.IsCancellationRequested) return;
+        foreach (string file in found) SearchResults.Items.Add(file);
+        StatusText.Text = found.Count == 0
+            ? $"Aucun fichier ne contient « {query} »."
+            : $"{found.Count} fichier(s) trouvé(s).";
     }
 
-    private void SearchDirectory(string directory, string query, ref int inaccessibleFolders)
+    private static List<string> FindFiles(string root, string query, CancellationToken token)
     {
-        try
+        var results = new List<string>();
+        var folders = new Stack<string>();
+        folders.Push(root);
+
+        while (folders.Count > 0 && results.Count < 2000)
         {
-            foreach (string file in Directory.EnumerateFiles(directory))
+            token.ThrowIfCancellationRequested();
+            string folder = folders.Pop();
+            try
             {
-                if (Path.GetFileName(file).Contains(query, StringComparison.OrdinalIgnoreCase))
+                foreach (string file in Directory.EnumerateFiles(folder))
                 {
-                    SearchResults.Items.Add(file);
+                    if (Path.GetFileName(file).Contains(query, StringComparison.OrdinalIgnoreCase))
+                        results.Add(file);
+                }
+
+                foreach (string sub in Directory.EnumerateDirectories(folder))
+                {
+                    if (!IgnoredFolders.Contains(Path.GetFileName(sub))) folders.Push(sub);
                 }
             }
-        }
-        catch (UnauthorizedAccessException)
-        {
-            inaccessibleFolders++;
-            return;
-        }
-        catch (IOException)
-        {
-            inaccessibleFolders++;
-            return;
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+            {
+                // dossier illisible : on passe au suivant
+            }
         }
 
-        IEnumerable<string> subdirectories;
-        try
-        {
-            subdirectories = Directory.EnumerateDirectories(directory).ToArray();
-        }
-        catch (UnauthorizedAccessException)
-        {
-            inaccessibleFolders++;
-            return;
-        }
-        catch (IOException)
-        {
-            inaccessibleFolders++;
-            return;
-        }
-
-        foreach (string subdirectory in subdirectories)
-        {
-            SearchDirectory(subdirectory, query, ref inaccessibleFolders);
-        }
+        results.Sort(StringComparer.OrdinalIgnoreCase);
+        return results;
     }
 
     private void SearchResults_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -1321,47 +1579,61 @@ public partial class MainWindow : Window
             ApplySyntaxHighlight(editor, fullPath);
             // Suggestions, extraits (Tab), fermeture automatique des parenthèses et des balises
             KeycesCode.Languages.CodeAssist.Attach(editor, fullPath);
+            editor.ContextMenu = CreateEditorMenu(editor);   // clic droit : couper/copier/coller + assistant
 
+            // En-tête de l'onglet comme VS Code : icône du langage, nom, bouton fermer (● si non enregistré)
+            var (glyph, glyphColor) = GetFileIcon(Path.GetExtension(fullPath).ToLowerInvariant());
+            var icon = new TextBlock
+            {
+                Text = glyph,
+                FontFamily = new FontFamily("Segoe UI"),
+                FontWeight = FontWeights.Bold,
+                FontSize = glyph.Length > 2 ? 8 : 10,
+                Foreground = glyphColor,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 6, 0)
+            };
             var title = new TextBlock
             {
                 Text = Path.GetFileName(fullPath),
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(10, 0, 6, 0),
                 TextTrimming = TextTrimming.CharacterEllipsis,
-                MaxWidth = 165
+                MaxWidth = 200
             };
-            var closeButton = new Button
-            {
-                Content = "\u00D7",
-                Width = 24,
-                Height = 24,
-                Padding = new Thickness(0),
-                Margin = new Thickness(0, 0, 4, 0),
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
-                FontSize = 15,
-                HorizontalContentAlignment = HorizontalAlignment.Center,
-                VerticalContentAlignment = VerticalAlignment.Center,
-                ToolTip = "Close"
-            };
-            closeButton.SetResourceReference(Control.ForegroundProperty, "SecondaryText");
-            var header = new DockPanel
-            {
-                LastChildFill = true,
-                MinHeight = 35
-            };
-            DockPanel.SetDock(closeButton, Dock.Right);
-            header.Children.Add(closeButton);
+            var closeButton = new Button { Style = (Style)FindResource("TabCloseButton") };
+            var header = new StackPanel { Orientation = Orientation.Horizontal, Height = 35 };
+            header.Children.Add(icon);
             header.Children.Add(title);
+            header.Children.Add(closeButton);
+
+            // Fil d'Ariane sous les onglets : src › serviceWorker.js
+            var page = new DockPanel();
+            var breadcrumb = CreateBreadcrumb(fullPath, glyph, glyphColor);
+            DockPanel.SetDock(breadcrumb, Dock.Top);
+            page.Children.Add(breadcrumb);
+            page.Children.Add(editor);
 
             var tab = new TabItem
             {
                 Header = header,
-                Content = editor,
-                Tag = fullPath
+                Content = page,
+                Tag = fullPath,
+                ToolTip = fullPath
             };
-            var document = new EditorDocument(fullPath, tab, editor, title);
+            // Clic avec la molette sur l'onglet : le ferme (comme VS Code)
+            tab.MouseUp += (_, e) =>
+            {
+                if (e.ChangedButton == MouseButton.Middle && _documents.TryGetValue(fullPath, out var doc))
+                    CloseDocument(doc);
+            };
+            var document = new EditorDocument(fullPath, tab, editor, title) { CloseButton = closeButton };
             closeButton.Click += (_, _) => CloseDocument(document);
+            editor.TextArea.Caret.PositionChanged += (_, _) =>
+            {
+                // Seulement la position (rapide) : le reste change quand on change d'onglet
+                var caret = editor.TextArea.Caret;
+                CursorStatus.Text = $"Ln {caret.Line}, Col {caret.Column}";
+            };
             editor.TextChanged += (_, _) =>
             {
                 if (document.IsDirty) return;
@@ -1386,6 +1658,122 @@ public partial class MainWindow : Window
         }
     }
 
+    // Fil d'Ariane : chemin du fichier depuis le dossier ouvert
+    private Border CreateBreadcrumb(string fullPath, string glyph, Brush glyphColor)
+    {
+        string relative = HasWorkspace && fullPath.StartsWith(_workspacePath, StringComparison.OrdinalIgnoreCase)
+            ? Path.GetRelativePath(_workspacePath, fullPath)
+            : Path.GetFileName(fullPath);
+        string[] parts = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(14, 0, 0, 0) };
+        for (int i = 0; i < parts.Length; i++)
+        {
+            bool last = i == parts.Length - 1;
+            if (last)
+            {
+                line.Children.Add(new TextBlock
+                {
+                    Text = glyph,
+                    FontWeight = FontWeights.Bold,
+                    FontSize = glyph.Length > 2 ? 8 : 9,
+                    Foreground = glyphColor,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 5, 0)
+                });
+            }
+
+            var part = new TextBlock { Text = parts[i], VerticalAlignment = VerticalAlignment.Center, FontSize = 12.5 };
+            part.SetResourceReference(TextBlock.ForegroundProperty, "BreadcrumbText");
+            line.Children.Add(part);
+
+            if (!last)
+            {
+                var separator = new TextBlock
+                {
+                    Text = "\uE76C",
+                    FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                    FontSize = 8,
+                    Margin = new Thickness(6, 1, 6, 0),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                separator.SetResourceReference(TextBlock.ForegroundProperty, "BreadcrumbText");
+                line.Children.Add(separator);
+            }
+        }
+
+        var bar = new Border { Height = 22, Child = line };
+        bar.SetResourceReference(Border.BackgroundProperty, "EditorBackground");
+        return bar;
+    }
+
+    private EditorDocument? CurrentDocument =>
+        EditorTabs.SelectedItem is TabItem { Tag: string path } && _documents.TryGetValue(path, out var document)
+            ? document
+            : null;
+
+    // Barre d'état : Ln, Col, indentation, fin de ligne, langage du fichier affiché
+    private void UpdateEditorStatus()
+    {
+        EditorDocument? document = CurrentDocument;
+        if (document is null)
+        {
+            EditorStatus.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var caret = document.Editor.TextArea.Caret;
+        EditorStatus.Visibility = Visibility.Visible;
+        CursorStatus.Text = $"Ln {caret.Line}, Col {caret.Column}";
+        IndentStatus.Text = document.Editor.Options.ConvertTabsToSpaces
+            ? $"Spaces: {document.Editor.Options.IndentationSize}"
+            : $"Tab Size: {document.Editor.Options.IndentationSize}";
+        string start = document.Editor.Document.GetText(0, Math.Min(document.Editor.Document.TextLength, 20000));
+        EolStatus.Text = start.Contains('\n') && !start.Contains("\r\n") ? "LF" : "CRLF";
+        LanguageStatus.Text = DisplayLanguage(document.Path);
+    }
+
+    private static string DisplayLanguage(string path) => Path.GetExtension(path).ToLowerInvariant() switch
+    {
+        ".cs" => "C#",
+        ".py" => "Python",
+        ".js" or ".mjs" or ".cjs" => "JavaScript",
+        ".jsx" => "JavaScript React",
+        ".ts" => "TypeScript",
+        ".tsx" => "TypeScript React",
+        ".html" or ".htm" => "HTML",
+        ".css" => "CSS",
+        ".scss" => "SCSS",
+        ".php" => "PHP",
+        ".java" => "Java",
+        ".c" => "C",
+        ".h" or ".cpp" or ".cc" or ".hpp" => "C++",
+        ".sql" => "SQL",
+        ".json" => "JSON",
+        ".xml" or ".csproj" or ".slnx" => "XML",
+        ".xaml" => "XAML",
+        ".md" => "Markdown",
+        ".ps1" => "PowerShell",
+        ".bat" or ".cmd" => "Batch",
+        ".go" => "Go",
+        ".rs" => "Rust",
+        ".rb" => "Ruby",
+        ".yml" or ".yaml" => "YAML",
+        _ => "Plain Text"
+    };
+
+    // Titre comme VS Code : « fichier — dossier — Keyce'sCode »
+    private void UpdateWindowTitle()
+    {
+        var parts = new List<string>();
+        if (CurrentDocument is { } document)
+            parts.Add(Path.GetFileName(document.Path) + (document.IsDirty ? " ●" : ""));
+        if (HasWorkspace)
+            parts.Add(Path.GetFileName(_workspacePath.TrimEnd('\\', '/')) is { Length: > 0 } name ? name : _workspacePath);
+        parts.Add("Keyce'sCode");
+        Title = string.Join(" — ", parts);
+    }
+
     private void CloseDocument(EditorDocument document)
     {
         _documents.Remove(document.Path);
@@ -1394,6 +1782,8 @@ public partial class MainWindow : Window
         {
             WelcomePanel.Visibility = Visibility.Visible;
         }
+        UpdateEditorStatus();
+        UpdateWindowTitle();
     }
 
     private void EditorTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1403,6 +1793,8 @@ public partial class MainWindow : Window
             WelcomePanel.Visibility = EditorTabs.Items.Count == 0
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+            UpdateEditorStatus();
+            UpdateWindowTitle();
         }
     }
 
@@ -1457,51 +1849,40 @@ public partial class MainWindow : Window
         }
     }
 
-    private static void UpdateDocumentTitle(EditorDocument document)
+    // Fichier modifié non enregistré : « ● » à la place de la croix, comme VS Code
+    private void UpdateDocumentTitle(EditorDocument document)
     {
-        document.Title.Text = Path.GetFileName(document.Path) + (document.IsDirty ? " *" : string.Empty);
+        document.Title.Text = Path.GetFileName(document.Path);
+        if (document.CloseButton is not null) document.CloseButton.Tag = document.IsDirty ? "Dirty" : null;
+        if (ReferenceEquals(document, CurrentDocument)) UpdateWindowTitle();
     }
 
     private void BottomPanelTab_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button selectedTab)
+        if (sender is not Button { Tag: string name } selectedTab)
         {
             return;
         }
 
-        ProblemsContent.Visibility = Visibility.Collapsed;
-        OutputContent.Visibility = Visibility.Collapsed;
-        DebugConsoleContent.Visibility = Visibility.Collapsed;
-        TerminalContent.Visibility = Visibility.Collapsed;
+        ProblemsContent.Visibility = name == "Problems" ? Visibility.Visible : Visibility.Collapsed;
+        OutputContent.Visibility = name == "Output" ? Visibility.Visible : Visibility.Collapsed;
+        DebugConsoleContent.Visibility = name == "Debug Console" ? Visibility.Visible : Visibility.Collapsed;
+        TerminalContent.Visibility = name == "Terminal" ? Visibility.Visible : Visibility.Collapsed;
 
+        // Onglet actif : texte clair et souligné ; les autres : gris
         foreach (Button tab in BottomPanelTabs.Children.OfType<Button>())
         {
-            tab.Tag = tab.Tag?.ToString()?.Replace("Active:", "", StringComparison.Ordinal);
-            tab.Foreground = (Brush)FindResource("SecondaryText");
-            tab.ClearValue(BackgroundProperty);
+            bool active = ReferenceEquals(tab, selectedTab);
+            tab.Style = (Style)FindResource(active ? "BottomPanelTabActive" : "BottomPanelTab");
+            tab.ApplyTemplate();
+            if (tab.Template?.FindName("TabUnderline", tab) is UIElement underline)
+                underline.Opacity = active ? 1 : 0;
         }
 
-        switch (selectedTab.Tag?.ToString())
-        {
-            case "Problems":
-                ProblemsContent.Visibility = Visibility.Visible;
-                break;
-            case "Output":
-                OutputContent.Visibility = Visibility.Visible;
-                break;
-            case "Debug Console":
-                DebugConsoleContent.Visibility = Visibility.Visible;
-                break;
-            default:
-                TerminalContent.Visibility = Visibility.Visible;
-                break;
-        }
-
-        selectedTab.Tag = $"Active:{selectedTab.Tag}";
+        // Le nom du shell n'a de sens que pour le terminal
+        ShellLabel.Visibility = name == "Terminal" ? Visibility.Visible : Visibility.Collapsed;
         UpdateRunInputBar();
-        selectedTab.SetResourceReference(BackgroundProperty, "EditorBackground");   // onglet actif en relief
-        selectedTab.Foreground = (Brush)FindResource("AccentBrush");
-        StatusText.Text = $"{selectedTab.Tag.ToString()?.Split(':')[1]} panel selected";
+        if (name == "Terminal") TerminalInput.Focus();
     }
 
     private static string FindWorkspacePath()
@@ -1567,7 +1948,52 @@ public partial class MainWindow : Window
         editor.TextArea.SetResourceReference(
             ICSharpCode.AvalonEdit.Editing.TextArea.SelectionBrushProperty, "TextSelection");
         editor.TextArea.Caret.CaretBrush = (Brush)FindResource("PrimaryText");
+
+        // Ligne du curseur entourée d'un fin cadre, comme VS Code
+        editor.Options.HighlightCurrentLine = true;
+        editor.TextArea.TextView.CurrentLineBackground = Brushes.Transparent;
+        var border = new Pen((Brush)FindResource("CurrentLineBorder"), 2);
+        border.Freeze();
+        editor.TextArea.TextView.CurrentLineBorder = border;
     }
+
+    // ----- Barre de titre : réduire, agrandir, fermer -----
+
+    private void Window_StateChanged(object? sender, EventArgs e)
+    {
+        bool maximized = WindowState == WindowState.Maximized;
+        // Fenêtre agrandie : Windows la fait déborder un peu de l'écran, on compense avec une marge
+        RootBorder.BorderThickness = maximized ? SystemParameters.WindowResizeBorderThickness : new Thickness(1);
+        RootBorder.BorderBrush = maximized ? Brushes.Transparent : (Brush)FindResource("BorderBrush");
+        MaximizeButton.Content = maximized ? "\uE923" : "\uE922";
+        MaximizeButton.ToolTip = maximized ? "Restaurer" : "Agrandir";
+    }
+
+    private void MinimizeWindow_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    private void MaximizeWindow_Click(object sender, RoutedEventArgs e) =>
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+
+    private void CloseWindow_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void About_Click(object sender, RoutedEventArgs e) =>
+        MessageBox.Show(this,
+            "Keyce'sCode 1.0.0\n\nÉditeur de code du groupe Keyce (B2) : éditeur avec coloration et complétion, " +
+            "terminal, exécution, Git/GitHub et assistant IA Google Gemini.",
+            "À propos de Keyce'sCode", MessageBoxButton.OK, MessageBoxImage.Information);
+
+    private void SaveAll_Click(object sender, RoutedEventArgs e) => SaveAllDocuments();
+
+    private void CloseEditor_Click(object sender, RoutedEventArgs e) => CloseCurrentEditor();
+
+    private void CloseCurrentEditor()
+    {
+        if (CurrentDocument is { } document) CloseDocument(document);
+    }
+
+    private void BranchStatus_Click(object sender, RoutedEventArgs e) => ShowPanel("Source Control");
+
+    private void ProblemsStatus_Click(object sender, RoutedEventArgs e) => ShowBottomTab(ProblemsTab);
 
     private sealed class EditorDocument
     {
@@ -1583,6 +2009,7 @@ public partial class MainWindow : Window
         public TabItem Tab { get; }
         public TextEditor Editor { get; }
         public TextBlock Title { get; }
+        public Button? CloseButton { get; init; }
         public bool IsDirty { get; set; }
     }
 }
